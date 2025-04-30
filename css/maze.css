@@ -1,0 +1,670 @@
+/* CSS Variables */
+:root {
+  --font-primary: 'Nanum Pen Script', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --color-text: #333;
+  --color-text-secondary: #666;
+  --color-text-dark: #2c3e50;
+  --color-bg-light: #f8f9fa;
+  --color-border: #ddd;
+  --color-accent: #4285F4;
+  --color-slider-bg: #ccc;
+  --color-focus: #4285F4;
+  --color-star-filled: #FFD700;
+  --color-star-empty: #ccc;
+  
+  --spacing-xs: 5px;
+  --spacing-sm: 8px;
+  --spacing-md: 10px;
+  --spacing-lg: 15px;
+  --spacing-xl: 20px;
+  
+  --border-radius: 4px;
+  --button-min-width: 100px;
+  --button-min-height: 40px;
+  
+  --transition-default: 0.2s;
+  --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  --focus-outline: 2px solid var(--color-focus);
+}
+
+/* Font definition for Nanum Pen Script */
+@font-face {
+  font-family: 'Nanum Pen Script';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/NanumPenScript-Regular.ttf') format('truetype');
+}
+
+/* Base styles */
+body {
+  font-family: var(--font-primary);
+  margin: 0;
+  padding: var(--spacing-xl);
+  line-height: 1.6;
+  color: var(--color-text);
+  font-size: 1.4em;
+}
+
+.content-wrapper {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+h1, h2 {
+  font-size: 2.5em;
+  letter-spacing: 1px;
+}
+
+/* Input and form control styles */
+input {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+}
+
+input:focus {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+label {
+  margin-bottom: var(--spacing-xs);
+  font-weight: bold;
+}
+
+/* Button styles */
+button {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: transparent;
+  color: var(--color-text);
+  border: none;
+  cursor: pointer;
+  transition: transform var(--transition-default);
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-width: var(--button-min-width);
+  min-height: var(--button-min-height);
+}
+
+button:hover {
+  transform: scale(1.05);
+}
+
+button:focus {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+/* Styled buttons with borders */
+#downloadBtn::before,
+#downloadPngBtn::before,
+#downloadFullSheetBtn::before,
+#resetPathBtn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid var(--color-text);
+  border-radius: var(--border-radius);
+  transform: rotate(-1deg);
+}
+
+#downloadBtn:hover::before,
+#downloadPngBtn:hover::before,
+#downloadFullSheetBtn:hover::before,
+#resetPathBtn:hover::before {
+  transform: rotate(1deg);
+}
+
+/* Icon styling */
+.reload-icon {
+  width: 20px;
+  height: 20px;
+  fill: var(--color-text);
+  margin-right: var(--spacing-sm);
+}
+
+/* Animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes celebrate {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.spin {
+  animation: spin 0.5s linear;
+}
+
+.path-endpoint-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+.star-celebration {
+  animation: celebrate 1s ease-out;
+}
+
+/* Layout components */
+.controls {
+  margin: var(--spacing-xl) 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xl);
+  justify-content: center;
+  align-items: center;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: row;
+  margin: 0;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.control-group label {
+  margin-bottom: 0;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.hidden-control-group {
+  display: none;
+}
+
+/* Maze container */
+.maze-container {
+  margin: var(--spacing-sm) auto;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  overflow: auto;
+}
+
+#maze {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Info sections */
+.info {
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-lg);
+  background-color: var(--color-bg-light);
+  border-radius: var(--border-radius);
+  font-size: 0.9em;
+}
+
+.info h3 {
+  margin-top: 0;
+  color: var(--color-text-dark);
+  font-size: 1.8em;
+}
+
+.info p {
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Seed input area */
+.seed-input {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.seed-input input {
+  font-family: 'Nanum Pen Script', sans-serif;
+  font-size: 3em;
+  background: transparent;
+  border: none;
+  text-align: center;
+  color: var(--color-text);
+  min-width: 1em;
+  max-width: 10em;
+  width: auto;
+  padding: var(--spacing-xs);
+  margin: 0;
+  display: block;
+}
+
+.seed-input button {
+  min-width: 60px;
+  min-height: 60px;
+  padding: 0;
+}
+
+.seed-input .reload-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.seed-input input:focus {
+  outline: none;
+}
+
+.seed-input input::-webkit-inner-spin-button,
+.seed-input input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.seed-input input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Instructions section */
+.instructions {
+  margin-top: 0;
+  padding: 0 var(--spacing-md) var(--spacing-md) var(--spacing-md);
+  background-color: var(--color-bg-light);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+.instructions h2 {
+  margin: 0;
+  color: var(--color-text-dark);
+  font-size: 2.2em;
+  text-align: center;
+}
+
+.instructions ul {
+  padding-left: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+  font-size: 1.2em;
+  line-height: 1.2;
+  margin-top: var(--spacing-md);
+}
+
+.instructions li {
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.2;
+}
+
+.instructions p {
+  margin: 0;
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+/* Toggle Switch Styles */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-slider-bg);
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--color-text-secondary);
+}
+
+input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 0 2px var(--color-focus);
+}
+
+/* Path controls */
+#resetPathBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* Resize handle */
+#resize-handle:hover line,
+#resize-handle:focus line {
+  stroke: var(--color-accent);
+  stroke-width: 3;
+}
+
+/* Touch pinch/zoom indicator */
+.pinch-zoom-indicator {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  border-radius: 20px;
+  font-size: 1.2em;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.pinch-zoom-indicator.active {
+  opacity: 1;
+} 
+
+/* Difficulty and dimension display */
+.difficulty-score {
+  color: var(--color-text);
+  font-size: 0.9em;
+  margin: var(--spacing-xs) auto;
+  text-align: center;
+}
+
+.dimensions-display {
+  text-align: center;
+  margin: 0;
+  padding: 0;
+  font-size: 1.2em;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  margin: var(--spacing-xl) auto var(--spacing-sm);
+  padding: var(--spacing-sm);
+  font-size: 0.9em;
+  color: var(--color-text-secondary);
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+}
+
+.github-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  transition: transform var(--transition-default);
+}
+
+.github-link:hover {
+  transform: scale(1.1);
+}
+
+.github-icon {
+  width: 24px;
+  height: 24px;
+  fill: var(--color-text);
+}
+
+/* Debug info */
+.debug-info {
+  display: none;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: var(--spacing-xl) auto;
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  background-color: var(--color-bg-light);
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+/* Activity Tracker Styles */
+#maze-activity-tracker {
+  margin: var(--spacing-md) auto;
+  padding: var(--spacing-md);
+  max-width: 280px;
+  background: var(--color-bg-light);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  text-align: left;
+  clear: both;
+  display: none; /* Initially hidden */
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#maze-activity-tracker.active {
+  display: block; /* Show when active */
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+#maze-timer-section {
+  display: none;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(0);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  visibility: hidden;
+  position: absolute;
+  width: 100%;
+}
+
+#maze-timer-section.active {
+  display: block; /* Show when active */
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+}
+
+#maze-timer {
+  font-size: 1.4em;
+  font-weight: bold;
+  color: var(--color-accent);
+  margin-bottom: var(--spacing-xs);
+}
+
+#maze-status {
+  font-size: 0.8em;
+  color: var(--color-text-secondary);
+}
+
+#maze-stats-section {
+  display: none;
+  font-size: 1.1em;
+  opacity: 0;
+  transform: translateY(0);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  visibility: hidden;
+  position: absolute;
+  width: 100%;
+}
+
+#maze-stats-section.active {
+  display: block; /* Show when active */
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+}
+
+.maze-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-xs) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 1.1em;
+  flex-wrap: wrap;
+}
+
+.maze-stat:last-child {
+  border-bottom: none;
+}
+
+.maze-stat .star-rating {
+  margin-left: auto;
+}
+
+.stat-label {
+  font-weight: bold;
+  color: var(--color-text);
+  margin-right: var(--spacing-sm);
+}
+
+/* Score styling */
+#maze-score {
+  font-size: 1.4em;
+  font-weight: bold;
+  color: var(--color-accent);
+  margin-left: auto; /* Right align the score */
+}
+
+/* Star Rating Styles */
+.star-rating-container {
+  display: flex;
+  justify-content: center;
+  margin: var(--spacing-md) 0 var(--spacing-lg) 0;
+  text-align: center;
+}
+
+.star-rating {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin: var(--spacing-xs) 0;
+}
+
+.star {
+  font-size: 2em; /* Slightly larger stars */
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  position: relative;
+  color: var(--color-star-empty);
+  transition: color 0.3s ease-in-out;
+}
+
+.star.filled {
+  color: var(--color-star-filled);
+}
+
+.star::before {
+  content: "★";
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Animation for stars */
+@keyframes star-pop {
+  0% { transform: scale(0.5); opacity: 0.7; }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.star.filled {
+  animation: star-pop 0.3s ease-out forwards;
+}
+
+/* Hover effect for interactive ratings */
+.star-rating.interactive .star:hover,
+.star-rating.interactive .star:hover ~ .star {
+  color: var(--color-star-filled);
+  cursor: pointer;
+}
+
+/* Keyboard accessibility - make sure the focus outline is visible for keyboard users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+/* Mobile improvements */
+@media (max-width: 768px) {
+  body {
+    padding: var(--spacing-sm);
+  }
+  
+  .seed-input input {
+    font-size: 2em;
+  }
+  
+  .instructions {
+    font-size: 0.9em;
+  }
+  
+  .instructions h2 {
+    font-size: 1.8em;
+  }
+  
+  .instructions ul {
+    font-size: 1em;
+  }
+  
+  /* Make the resize handle more prominent for touch */
+  #resize-handle line {
+    stroke-width: 3;
+  }
+  
+  .star {
+    font-size: 1.3em;
+  }
+}
+
+/* Estimated difficulty styles */
+#difficulty-score.estimated {
+    font-style: italic;
+    opacity: 0.8;
+}

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive maze generator with customizable size and downloadable options">
+    <title>My Web Maze</title>
+    <link rel="stylesheet" href="css/maze.css">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <header>
+        <div class="content-wrapper">
+            <div class="seed-input" aria-label="Maze seed control">
+                <input type="number" id="seed" placeholder="123456789" min="0" step="1" aria-label="Enter seed number for maze generation">
+                <button id="generateBtn" title="Generate Maze" aria-label="Generate new maze">
+                    <svg class="reload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="maze-container" aria-label="Interactive maze">
+            <svg id="maze" width="402" height="402" aria-label="Maze puzzle"></svg>
+        </section>
+        
+        <div id="pinch-zoom-indicator" class="pinch-zoom-indicator" aria-live="polite">Cell Size: <span id="current-cell-size">20</span></div>
+        
+        <div id="debug-info" class="debug-info" aria-hidden="true"></div>
+        
+        <div class="content-wrapper">
+            <div class="dimensions-display" aria-live="polite">
+                <span id="dimensions"></span>
+                &mdash;
+                <span id="difficulty-score" class="difficulty-score"></span>
+            </div>
+            
+            <div id="maze-activity-tracker" class="maze-ui-component">
+                <div id="maze-timer-section">
+                    <div id="maze-timer">00:00</div>
+                    <div id="maze-status">Ready</div>
+                </div>
+                <div id="maze-stats-section">
+                    <div class="star-rating-container">
+                        <div class="star-rating">
+                            <span class="star" data-index="1"></span>
+                            <span class="star" data-index="2"></span>
+                            <span class="star" data-index="3"></span>
+                            <span class="star" data-index="4"></span>
+                            <span class="star" data-index="5"></span>
+                        </div>
+                    </div>
+                    <div class="maze-stat">
+                        <span class="stat-label">Time:</span>
+                        <span id="maze-completion-time">--:--</span>
+                    </div>
+                    <div class="maze-stat">
+                        <span class="stat-label">Path Length:</span>
+                        <span id="maze-path-length">--</span>
+                    </div>
+                </div>
+            </div>
+            <div class="controls" role="toolbar" aria-label="Reset path button">
+                <button id="resetPathBtn" title="Reset Path" aria-label="Reset drawn path">
+                    <svg class="reload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                    </svg>
+                    <span>Reset Path</span>
+                </button>
+            </div>
+            
+            <section class="controls" role="toolbar" aria-label="Download options">
+                <button id="downloadBtn" title="Download SVG">
+                    <svg class="reload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    <span>SVG</span>
+                </button>
+                <button id="downloadPngBtn" title="Download PNG">
+                    <svg class="reload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    <span>PNG</span>
+                </button>
+                <button id="downloadFullSheetBtn" title="Download a page of mazes as PDF">
+                    <svg class="reload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    <span>Multiple Mazes (PDF)</span>
+                </button>
+            </section>
+            
+            <section class="controls" role="toolbar" aria-label="Maze controls">
+                <div class="control-group hidden-control-group">
+                    <label class="switch">
+                        <input type="checkbox" id="showMarkers" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <label for="showMarkers">Start/End</label>
+                </div>
+            </section>
+            
+            <section class="controls" hidden>
+                <div class="control-group">
+                    <input type="hidden" id="width" min="5" max="100" value="20">
+                </div>
+                
+                <div class="control-group">
+                    <input type="hidden" id="height" min="5" max="100" value="20">
+                </div>
+                
+                <div class="control-group">
+                    <input type="hidden" id="cellSize" min="5" max="50" value="20">
+                </div>
+            </section>
+
+            <section class="instructions">
+                <h2>Instructions</h2>
+                <ul>
+                    <li><strong>Change Size:</strong> Scroll with mouse (on computer) or pinch (on phone) to make maze cells bigger or smaller.</li>
+                    <li><strong>Change Shape:</strong> Drag the bottom-right corner to make the maze wider or taller.</li>
+                    <li><strong>New Maze:</strong> Click reload or type a number to create a different maze.</li>
+                    <li><strong>Solve Maze:</strong> Click and drag to draw a path from entrance to exit. Use the Reset Path button to clear your solution and try again.</li>
+                    <li><strong>Save Maze:</strong> Click SVG or PNG buttons to save your maze as a file.</li>
+                    <li><strong>Multiple Mazes:</strong> Click "Multiple Mazes" to download a PDF with several mazes on one page.</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Copyright © <span id="current-year">2025</span> codeprimate</p>
+        <a href="https://github.com/codeprimate/mywebmaze" class="github-link" title="GitHub Repository" aria-label="View source code on GitHub" target="_blank" rel="noopener noreferrer">
+            <svg class="github-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+        </a>
+    </footer>
+
+    <!-- Load all dependencies in the correct order with traditional script tags -->
+    <script src="lib/rough.js"></script>
+    <script src="lib/jspdf.umd.min.js"></script>
+    <script src="js/maze-core.js"></script>
+    <script src="js/maze-difficulty-scorer.js"></script>
+    <script src="js/maze-enhanced.js"></script>
+    <script src="js/maze-optimizer.js"></script>
+    <script src="js/maze-ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 

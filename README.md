@@ -2,7 +2,7 @@
 
 A web-based application for generating and perfect mazes with a hand-drawn aesthetic.
 
-![Maze Generator Screenshot](screenshot.png)
+![Maze Generator Screenshot](assets/images/screenshot.png)
 
 ## Features
 
@@ -21,7 +21,8 @@ A web-based application for generating and perfect mazes with a hand-drawn aesth
 3. **Resize the Maze**: Drag the bottom-right corner to change dimensions
 4. **Trace the Path**: Click and drag to trace the path from entrance to exit
 5. **Download**: Save your maze as an SVG or PNG file using the download buttons
-6. **Reset Path**: Clear your traced path with the reset button
+6. **Download Multiple Mazes**: Create a PDF with multiple mazes on a single page using the "Multiple Mazes" button
+7. **Reset Path**: Clear your traced path with the reset button
 
 ## Implementation
 
@@ -32,15 +33,17 @@ The maze is generated using a depth-first search algorithm with a randomized app
 
 ## Dependencies
 
-- [Rough.js](https://roughjs.com/) - For the hand-drawn aesthetic
+- [Rough.js](https://roughjs.com/) - Library used for the hand-drawn aesthetic (MIT License)
+- [jsPDF](https://github.com/parallax/jsPDF) - Library used for PDF generation (MIT License)
+- [Nanum Pen Script](https://fonts.google.com/specimen/Nanum+Pen+Script) - Google Font used for the handwritten text style (SIL Open Font License). The font is bundled with this project for offline use. See the included OFL.txt file for the full license text.
 
 ## Installation
 
-Simply clone this repository and open `maze.html` in a web browser:
+Simply clone this repository and open `index.html` in a web browser:
 
 ```
-git clone https://github.com/yourusername/perfect-maze-generator.git
-cd perfect-maze-generator
+git clone https://github.com/codeprimate/mywebmaze.git
+cd mywebmaze
 ```
 
 No build process or server is required.
@@ -52,7 +55,7 @@ No build process or server is required.
 
 ## License
 
-Copyright 2025 codeprimate. MIT license.
+Copyright © 2025 codeprimate. MIT license.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
