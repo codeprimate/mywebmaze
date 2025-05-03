@@ -878,6 +878,16 @@ const MazeUI = (function() {
                     _hardModeEnabled = savedHardMode === 'true';
                     hardModeToggle.checked = _hardModeEnabled;
                     
+                    // Update toggle container class based on initial state
+                    const toggleContainer = hardModeToggle.closest('.hard-mode-toggle');
+                    if (toggleContainer) {
+                        if (_hardModeEnabled) {
+                            toggleContainer.classList.add('active');
+                        } else {
+                            toggleContainer.classList.remove('active');
+                        }
+                    }
+                    
                     // Apply immediately if enabled
                     if (_hardModeEnabled && svgElement) {
                         updateHardModeOverlay(svgElement);
@@ -886,6 +896,16 @@ const MazeUI = (function() {
                 
                 hardModeToggle.addEventListener('change', (e) => {
                     _hardModeEnabled = e.target.checked;
+                    
+                    // Update toggle container class based on state
+                    const toggleContainer = e.target.closest('.hard-mode-toggle');
+                    if (toggleContainer) {
+                        if (_hardModeEnabled) {
+                            toggleContainer.classList.add('active');
+                        } else {
+                            toggleContainer.classList.remove('active');
+                        }
+                    }
                     
                     // Store preference in local storage
                     localStorage.setItem('hardModeEnabled', _hardModeEnabled.toString());
