@@ -1223,6 +1223,9 @@ const MazeUI = (function() {
             this.svgElement = svgElement;
             this.rough = rough;
             
+            // Animation properties
+            this.endpointAnimationId = null;
+            
             // Check for debug parameter in URL
             this.debugEnabled = getUrlParam('debug');
             this.debugElement = document.getElementById('debug-info');
@@ -1379,6 +1382,12 @@ const MazeUI = (function() {
         
         // Reset the path - both data and visuals
         resetPath() {
+            // Cancel any ongoing endpoint animation
+            if (this.endpointAnimationId) {
+                cancelAnimationFrame(this.endpointAnimationId);
+                this.endpointAnimationId = null;
+            }
+            
             // Stop any active timer
             if (this.maze.userActivity && this.maze.userActivity.active) {
                 if (this.timerInterval) {
@@ -1387,8 +1396,11 @@ const MazeUI = (function() {
                 }
             }
             
-            this.initializeUserPath();
+            // Clear all graphics first
             this.clearPathGraphics();
+            
+            // Reset path data
+            this.initializeUserPath();
             
             // Reset hard mode overlay to center on entrance if enabled
             if (_hardModeEnabled) {
@@ -1412,6 +1424,21 @@ const MazeUI = (function() {
         clearPathGraphics() {
             if (!this.maze.pathGroup) return;
             
+            // Cancel any ongoing animations
+            if (this.endpointAnimationId) {
+                cancelAnimationFrame(this.endpointAnimationId);
+                this.endpointAnimationId = null;
+            }
+            
+            // Clean up any specific animation elements (for safety)
+            const tempElements = this.maze.pathGroup.querySelectorAll('.endpoint-marker-temp, .path-animation-temp');
+            tempElements.forEach(element => {
+                if (this.maze.pathGroup.contains(element)) {
+                    this.maze.pathGroup.removeChild(element);
+                }
+            });
+            
+            // Clear all SVG elements
             while (this.maze.pathGroup.firstChild) {
                 this.maze.pathGroup.removeChild(this.maze.pathGroup.firstChild);
             }
@@ -1580,6 +1607,10 @@ const MazeUI = (function() {
                 return false;
             }
             
+            // Store previous end cell for animation
+            const previousEndCell = this.maze.userPath.length > 0 ? 
+                this.maze.grid[this.maze.currentPathEnd.row][this.maze.currentPathEnd.col] : null;
+            
             // Show reset path button if it's not already visible
             if (this.resetPathBtn && this.resetPathBtn.style.display === 'none') {
                 this.resetPathBtn.style.display = 'flex';
@@ -1621,8 +1652,31 @@ const MazeUI = (function() {
                 updateVisibleArea();
             }
             
-            // Render the updated path
-            this.renderPath();
+            // If this is not the first cell, we need to draw path lines up to the previous cell
+            // and then animate the last segment
+            if (previousEndCell && !this.maze.isCompleted) {
+                // Draw path lines up to (but not including) the last segment
+                if (this.maze.userPath.length > 2) {
+                    // Create a temporary userPath without the latest cell
+                    const originalPath = [...this.maze.userPath];
+                    this.maze.userPath.pop(); // Remove the last cell temporarily
+                    
+                    // Render the path up to the previous cell
+                    this.renderPath(false);
+                    
+                    // Restore the full path
+                    this.maze.userPath = originalPath;
+                } else {
+                    // For the second cell, just clear the graphics
+                    this.clearPathGraphics();
+                }
+                
+                // Now animate the last segment and endpoint together
+                this.animatePathSegment(previousEndCell, cell);
+            } else if (!this.maze.isCompleted) {
+                // Just render the endpoint directly for the first cell
+                this.highlightPathEnd();
+            }
             
             // Check if we've reached the exit
             if (cell.row === this.maze.exit.row && cell.col === this.maze.exit.col) {
@@ -1691,7 +1745,10 @@ const MazeUI = (function() {
         }
         
         // Render the current path with Rough.js
-        renderPath() {
+        renderPath(shouldRenderEndpoint = true) {
+            // Store animation state before clearing graphics
+            const wasAnimating = !!this.endpointAnimationId;
+            
             this.clearPathGraphics();
             
             if (this.maze.userPath.length === 0) {
@@ -1704,8 +1761,11 @@ const MazeUI = (function() {
             // Draw the simplified path with a single thick line
             this.drawPathLine(pathPoints);
             
-            // Highlight the endpoint if the maze is not completed
-            if (!this.maze.isCompleted) {
+            // Only render the endpoint if:
+            // 1. We're told to render it (for addCellToPath we might not want this)
+            // 2. The maze is not completed
+            // 3. We weren't already animating (avoid race condition)
+            if (shouldRenderEndpoint && !this.maze.isCompleted && !wasAnimating) {
                 this.highlightPathEnd();
             }
         }
@@ -1834,6 +1894,95 @@ const MazeUI = (function() {
             const endpoint = this.rough.circle(x, y, Math.max(4, Math.min(10, this.maze.cellSize / 4)), endpointOptions);
             
             this.maze.pathGroup.appendChild(endpoint);
+        }
+        
+        // Animate the movement of the path endpoint marker
+        animatePathEndpoint(oldCell, newCell) {
+            if (!oldCell || !newCell) return;
+            
+            // Calculate center positions
+            const oldX = oldCell.col * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            const oldY = oldCell.row * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            const newX = newCell.col * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            const newY = newCell.row * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            
+            // Cancel any existing animation
+            if (this.endpointAnimationId) {
+                cancelAnimationFrame(this.endpointAnimationId);
+                this.endpointAnimationId = null;
+            }
+            
+            // Clean up any existing temporary markers
+            const existingMarkers = this.maze.pathGroup.querySelectorAll('.endpoint-marker-temp');
+            existingMarkers.forEach(marker => this.maze.pathGroup.removeChild(marker));
+            
+            // Create endpoint marker
+            const endpointMarker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            endpointMarker.classList.add('endpoint-marker-temp');
+            
+            // Create the circle using Rough.js
+            const endpointOptions = {
+                fill: '#0B5CDB',
+                fillStyle: 'solid',
+                stroke: '#073EA4',
+                strokeWidth: 2,
+                roughness: 2.0,
+                seed: this.maze.seed + 300
+            };
+            
+            const markerSize = Math.max(4, Math.min(10, this.maze.cellSize/4));
+            const circle = this.rough.circle(0, 0, markerSize, endpointOptions);
+            endpointMarker.appendChild(circle);
+            
+            // Position at the start position
+            endpointMarker.setAttribute('transform', `translate(${oldX}, ${oldY})`);
+            
+            // Add to the path group
+            this.maze.pathGroup.appendChild(endpointMarker);
+            
+            // Animation variables
+            const startTime = performance.now();
+            const duration = 200; // 200ms animation
+            
+            // Store reference to this for closure
+            const self = this;
+            
+            // Animation function
+            const animateMarker = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(1, elapsed / duration);
+                
+                // Easing function - easeOutQuad for smooth deceleration
+                const easedProgress = 1 - (1 - progress) * (1 - progress);
+                
+                // Calculate current position
+                const currentX = oldX + (newX - oldX) * easedProgress;
+                const currentY = oldY + (newY - oldY) * easedProgress;
+                
+                // Update position
+                endpointMarker.setAttribute('transform', `translate(${currentX}, ${currentY})`);
+                
+                // Continue animation if not complete
+                if (progress < 1) {
+                    self.endpointAnimationId = requestAnimationFrame(animateMarker);
+                } else {
+                    // Animation complete
+                    self.endpointAnimationId = null;
+                    
+                    // Clean up the animated marker
+                    if (self.maze.pathGroup.contains(endpointMarker)) {
+                        self.maze.pathGroup.removeChild(endpointMarker);
+                    }
+                    
+                    // Now that animation is complete, add the final endpoint marker
+                    if (!self.maze.isCompleted) {
+                        self.highlightPathEnd();
+                    }
+                }
+            };
+            
+            // Start animation
+            this.endpointAnimationId = requestAnimationFrame(animateMarker);
         }
         
         // Create a star at the exit when maze is completed
@@ -2486,6 +2635,118 @@ const MazeUI = (function() {
         // Initialize the module
         static init(maze, svgElement) {
             return new PathManager(maze, svgElement, rough.svg(svgElement));
+        }
+        
+        // Animate both the path segment and the endpoint marker
+        animatePathSegment(oldCell, newCell) {
+            if (!oldCell || !newCell) return;
+            
+            // Cancel any existing animation
+            if (this.endpointAnimationId) {
+                cancelAnimationFrame(this.endpointAnimationId);
+                this.endpointAnimationId = null;
+            }
+            
+            // Calculate center positions
+            const oldX = oldCell.col * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            const oldY = oldCell.row * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            const newX = newCell.col * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            const newY = newCell.row * this.maze.cellSize + this.maze.cellSize/2 + getPadding();
+            
+            // Create a group for our animated elements
+            const animationGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            animationGroup.classList.add('path-animation-temp');
+            this.maze.pathGroup.appendChild(animationGroup);
+            
+            // Create the path line options
+            const pathOptions = {
+                stroke: '#4285F4',
+                strokeWidth: Math.max(4, Math.min(12, this.maze.cellSize / 4)),
+                roughness: 1.8,
+                bowing: 1.2,
+                seed: this.maze.seed + 100
+            };
+            
+            // Create endpoint marker options
+            const endpointOptions = {
+                fill: '#0B5CDB',
+                fillStyle: 'solid',
+                stroke: '#073EA4',
+                strokeWidth: 2,
+                roughness: 2.0,
+                seed: this.maze.seed + 300
+            };
+            
+            const markerSize = Math.max(4, Math.min(10, this.maze.cellSize/4));
+            
+            // Animation variables
+            const startTime = performance.now();
+            const duration = 200; // 200ms animation
+            const self = this;
+            
+            // Animation function
+            const animateSegment = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(1, elapsed / duration);
+                
+                // Easing function - easeOutQuad for smooth deceleration
+                const easedProgress = 1 - (1 - progress) * (1 - progress);
+                
+                // Calculate current position for endpoint
+                const currentX = oldX + (newX - oldX) * easedProgress;
+                const currentY = oldY + (newY - oldY) * easedProgress;
+                
+                // Clear previous animation state
+                while (animationGroup.firstChild) {
+                    animationGroup.removeChild(animationGroup.firstChild);
+                }
+                
+                // Draw animated line from old cell to current position
+                const line = self.rough.line(
+                    oldX, oldY,
+                    currentX, currentY,
+                    pathOptions
+                );
+                animationGroup.appendChild(line);
+                
+                // Draw endpoint at current position
+                const endpoint = self.rough.circle(
+                    currentX, currentY,
+                    markerSize,
+                    endpointOptions
+                );
+                animationGroup.appendChild(endpoint);
+                
+                // Continue animation if not complete
+                if (progress < 1) {
+                    self.endpointAnimationId = requestAnimationFrame(animateSegment);
+                } else {
+                    // Animation complete
+                    self.endpointAnimationId = null;
+                    
+                    // Clean up the animated elements
+                    if (self.maze.pathGroup.contains(animationGroup)) {
+                        self.maze.pathGroup.removeChild(animationGroup);
+                    }
+                    
+                    // Now draw the final state
+                    // 1. Draw the final line segment
+                    const finalLine = self.rough.line(
+                        oldX, oldY,
+                        newX, newY,
+                        pathOptions
+                    );
+                    self.maze.pathGroup.appendChild(finalLine);
+                    
+                    // 2. Draw the final endpoint
+                    if (!self.maze.isCompleted) {
+                        self.highlightPathEnd();
+                    }
+                }
+            };
+            
+            // Start animation
+            this.endpointAnimationId = requestAnimationFrame(animateSegment);
         }
     }
     
