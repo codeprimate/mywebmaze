@@ -12,16 +12,7 @@ const MazeUI = (function() {
     let _resizeTimeout = null;
     let _proposedWidth, _proposedHeight, _proposedCellSize;
     let _resizeOverlay = null;
-    let _hardModeEnabled = false;
-    let _hardModeOverlay = null;
-    // Simplify animation state tracking - consolidate related variables
-    let _hardModeAnimation = {
-        active: false,
-        id: null,
-        startTime: null,
-        currentPos: { x: 0, y: 0 },
-        targetPos: { x: 0, y: 0 }
-    };
+    let _hardModeManager = null;
     
     // Helper function for debouncing function calls
     function debounce(func, wait) {
@@ -109,345 +100,6 @@ const MazeUI = (function() {
         
         // Add to SVG
         svgElement.appendChild(handleGroup);
-    }
-    
-    // Create or update the hard mode overlay
-    function updateHardModeOverlay(svgElement, visible = true) {
-        // Remove existing overlay if there is one
-        if (_hardModeOverlay) {
-            // Check if the overlay is actually a child of this SVG element before removing
-            if (svgElement.contains(_hardModeOverlay)) {
-                svgElement.removeChild(_hardModeOverlay);
-            }
-            _hardModeOverlay = null;
-        }
-        
-        // If hard mode is not enabled or visible is false, don't create a new overlay
-        if (!_hardModeEnabled || !visible) {
-            return;
-        }
-        
-        // Create overlay group
-        _hardModeOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        _hardModeOverlay.setAttribute('id', 'hard-mode-overlay');
-        
-        // Add the overlay group to the SVG
-        svgElement.appendChild(_hardModeOverlay);
-        
-        // If there's a path manager, update the visible area
-        if (_pathManager && _maze) {
-            updateVisibleArea();
-        } else {
-            // Create a simple full overlay as placeholder until we have a path
-            const svgWidth = parseFloat(svgElement.getAttribute('width'));
-            const svgHeight = parseFloat(svgElement.getAttribute('height'));
-            
-            const placeholder = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            placeholder.setAttribute('x', '0');
-            placeholder.setAttribute('y', '0');
-            placeholder.setAttribute('width', svgWidth);
-            placeholder.setAttribute('height', svgHeight);
-            placeholder.setAttribute('fill', '#000000'); // Completely black, fully opaque
-            placeholder.setAttribute('class', 'hard-mode-mask placeholder');
-            
-            _hardModeOverlay.appendChild(placeholder);
-        }
-    }
-    
-    // Cubic easing function for smooth animation (ease-in-out)
-    function easeInOutCubic(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    }
-    
-    // Draw the hard mode overlay with animation
-    function animateHardModeOverlay(timestamp) {
-        // If this is the first frame, store the start time
-        if (!_hardModeAnimation.startTime) {
-            _hardModeAnimation.startTime = timestamp;
-        }
-        
-        // Calculate elapsed time
-        const elapsed = timestamp - _hardModeAnimation.startTime;
-        const duration = 600; // Animation duration in milliseconds
-        
-        // Calculate progress (0 to 1)
-        let progress = Math.min(elapsed / duration, 1);
-        
-        // Apply easing function
-        progress = easeInOutCubic(progress);
-        
-        // Lock progress to discrete steps to reduce flickering
-        if (progress < 0.05) progress = 0;
-        else if (progress > 0.95) progress = 1;
-        
-        // Calculate current position based on progress
-        const currentX = _hardModeAnimation.currentPos.x + (_hardModeAnimation.targetPos.x - _hardModeAnimation.currentPos.x) * progress;
-        const currentY = _hardModeAnimation.currentPos.y + (_hardModeAnimation.targetPos.y - _hardModeAnimation.currentPos.y) * progress;
-        
-        // Draw overlay at current position
-        drawHardModeOverlay(currentX, currentY);
-        
-        // Continue animation if not complete
-        if (progress < 1) {
-            _hardModeAnimation.id = requestAnimationFrame(animateHardModeOverlay);
-        } else {
-            // Animation complete
-            _hardModeAnimation.active = false;
-            _hardModeAnimation.id = null;
-            _hardModeAnimation.startTime = null;
-            
-            // Update the current position to match target
-            _hardModeAnimation.currentPos = { x: _hardModeAnimation.targetPos.x, y: _hardModeAnimation.targetPos.y };
-        }
-    }
-    
-    // Draw the hard mode overlay at the specified position
-    function drawHardModeOverlay(centerX, centerY) {
-        if (!_hardModeEnabled || !_hardModeOverlay || !_maze) {
-            return;
-        }
-        
-        const svgElement = document.getElementById('maze');
-        if (!svgElement) return;
-        
-        // Calculate visible radius
-        const minDimension = Math.min(_maze.width, _maze.height);
-        const visibleRadius = Math.max(
-            2.5 * _maze.cellSize, // Minimum radius
-            Math.min(minDimension * _maze.cellSize * 0.2, 5 * _maze.cellSize) // Max radius
-        );
-        
-        // SVG dimensions
-        const svgWidth = parseFloat(svgElement.getAttribute('width'));
-        const svgHeight = parseFloat(svgElement.getAttribute('height'));
-        
-        // Clear existing overlay content
-        while (_hardModeOverlay.firstChild) {
-            _hardModeOverlay.removeChild(_hardModeOverlay.firstChild);
-        }
-        
-        // Create or reuse the defs section
-        const defs = svgElement.querySelector('defs') || createSvgElement('defs');
-        if (!svgElement.contains(defs)) {
-            svgElement.appendChild(defs);
-        }
-        
-        // Setup blur filter for soft edges
-        const filterId = 'hardModeBlurFilter';
-        let blurFilter = svgElement.querySelector(`#${filterId}`);
-        if (!blurFilter) {
-            blurFilter = createBlurFilter(filterId, _maze.cellSize);
-            defs.appendChild(blurFilter);
-        }
-        
-        // Create a mask for the cutout
-        const maskId = `hardModeMask-${Date.now()}`;
-        const mask = createMask(maskId, svgWidth, svgHeight, centerX, centerY, visibleRadius);
-        defs.appendChild(mask);
-        
-        // Clean up old masks to prevent memory leaks (keep the last 3)
-        cleanupOldElements(defs, 'mask[id^="hardModeMask-"]', 3);
-        cleanupOldElements(defs, 'radialGradient[id^="hardModeGradient-"]', 3);
-        
-        // Create the overlay rectangle
-        const overlay = createSvgElement('rect');
-        overlay.setAttribute('x', '0');
-        overlay.setAttribute('y', '0');
-        overlay.setAttribute('width', svgWidth);
-        overlay.setAttribute('height', svgHeight);
-        overlay.setAttribute('fill', '#000000');
-        overlay.setAttribute('mask', `url(#${maskId})`);
-        overlay.setAttribute('filter', `url(#${filterId})`);
-        
-        // Add the overlay to the hardModeOverlay group
-        _hardModeOverlay.appendChild(overlay);
-        
-        // Helper functions
-        function createSvgElement(type) {
-            return document.createElementNS('http://www.w3.org/2000/svg', type);
-        }
-        
-        function createBlurFilter(id, cellSize) {
-            const filter = createSvgElement('filter');
-            filter.setAttribute('id', id);
-            filter.setAttribute('x', '-50%');
-            filter.setAttribute('y', '-50%');
-            filter.setAttribute('width', '200%');
-            filter.setAttribute('height', '200%');
-            
-            // Add the Gaussian blur filter
-            const blur = createSvgElement('feGaussianBlur');
-            blur.setAttribute('in', 'SourceGraphic');
-            const blurAmount = Math.max(5, Math.min(20, cellSize * 0.4));
-            blur.setAttribute('stdDeviation', blurAmount);
-            blur.setAttribute('result', 'blur');
-            
-            // Add component transfer for solid black edges
-            const feComponentTransfer = createSvgElement('feComponentTransfer');
-            feComponentTransfer.setAttribute('in', 'blur');
-            const feFunc = createSvgElement('feFuncA');
-            feFunc.setAttribute('type', 'table');
-            feFunc.setAttribute('tableValues', '0 0.4 0.8 0.95 1');
-            feComponentTransfer.appendChild(feFunc);
-            
-            filter.appendChild(blur);
-            filter.appendChild(feComponentTransfer);
-            
-            return filter;
-        }
-        
-        function createMask(id, width, height, centerX, centerY, radius) {
-            const mask = createSvgElement('mask');
-            mask.setAttribute('id', id);
-            
-            // Background (white = visible in mask)
-            const background = createSvgElement('rect');
-            background.setAttribute('x', '0');
-            background.setAttribute('y', '0');
-            background.setAttribute('width', width);
-            background.setAttribute('height', height);
-            background.setAttribute('fill', 'white');
-            
-            // Create gradient for smooth edge
-            const gradientId = `hardModeGradient-${Date.now()}`;
-            const gradient = createGradient(gradientId);
-            defs.appendChild(gradient);
-            
-            // Cutout circle with gradient fill
-            const circle = createSvgElement('circle');
-            circle.setAttribute('cx', centerX);
-            circle.setAttribute('cy', centerY);
-            circle.setAttribute('r', radius * 1.2); // Extra radius for gradient fade
-            circle.setAttribute('fill', `url(#${gradientId})`);
-            
-            mask.appendChild(background);
-            mask.appendChild(circle);
-            
-            return mask;
-        }
-        
-        function createGradient(id) {
-            const gradient = createSvgElement('radialGradient');
-            gradient.setAttribute('id', id);
-            gradient.setAttribute('cx', '50%');
-            gradient.setAttribute('cy', '50%');
-            gradient.setAttribute('r', '50%');
-            gradient.setAttribute('fx', '50%');
-            gradient.setAttribute('fy', '50%');
-            
-            const stops = [
-                { offset: '0%', color: 'black', opacity: '1' },
-                { offset: '80%', color: 'black', opacity: '0.9' },
-                { offset: '90%', color: 'black', opacity: '0.6' },
-                { offset: '100%', color: 'black', opacity: '0' }
-            ];
-            
-            stops.forEach(({ offset, color, opacity }) => {
-                const stop = createSvgElement('stop');
-                stop.setAttribute('offset', offset);
-                stop.setAttribute('style', `stop-color:${color}; stop-opacity:${opacity}`);
-                gradient.appendChild(stop);
-            });
-            
-            return gradient;
-        }
-        
-        function cleanupOldElements(parent, selector, keepCount) {
-            const elements = parent.querySelectorAll(selector);
-            if (elements.length > keepCount) {
-                const elemArray = Array.from(elements);
-                elemArray.sort((a, b) => a.id.localeCompare(b.id));
-                
-                for (let i = 0; i < elemArray.length - keepCount; i++) {
-                    parent.removeChild(elemArray[i]);
-                }
-            }
-        }
-    }
-    
-    // The debounced version of visible area updates for rapid movements
-    const debouncedUpdateVisibleArea = debounce(function() {
-        if (_hardModeAnimation.active && _hardModeAnimation.id) {
-            cancelAnimationFrame(_hardModeAnimation.id);
-            _hardModeAnimation.id = null;
-        }
-        
-        // Reset animation state and use final target position
-        _hardModeAnimation.currentPos = { x: _hardModeAnimation.targetPos.x, y: _hardModeAnimation.targetPos.y };
-        _hardModeAnimation.active = false;
-        _hardModeAnimation.startTime = null;
-        
-        // Call update for final position
-        updateVisibleArea(false);
-    }, 400);
-    
-    // Update the visible area around the path anchor
-    function updateVisibleArea(animate = true) {
-        if (!_hardModeEnabled || !_hardModeOverlay || !_maze || !_pathManager) {
-            return;
-        }
-        
-        // Get the SVG element and its dimensions
-        const svgElement = document.getElementById('maze');
-        if (!svgElement) return;
-        
-        // Get current path end position - this is the anchor point
-        let centerRow, centerCol;
-        
-        if (_maze.userPath && _maze.userPath.length > 0) {
-            // Use the last cell in the path as the center
-            const lastCell = _maze.userPath[_maze.userPath.length - 1];
-            centerRow = lastCell.row;
-            centerCol = lastCell.col;
-        } else if (_maze.entrance) {
-            // If no path yet, use the entrance
-            centerRow = _maze.entrance.row;
-            centerCol = _maze.entrance.col;
-        } else {
-            return; // No reference point available
-        }
-        
-        // Calculate the center point in SVG coordinates
-        const padding = getPadding();
-        const centerX = centerCol * _maze.cellSize + (_maze.cellSize / 2) + padding;
-        const centerY = centerRow * _maze.cellSize + (_maze.cellSize / 2) + padding;
-        
-        // Update the target position
-        _hardModeAnimation.targetPos = { x: centerX, y: centerY };
-        
-        // For first-time initialization
-        if (!_hardModeAnimation.currentPos.x && !_hardModeAnimation.currentPos.y) {
-            _hardModeAnimation.currentPos = { x: centerX, y: centerY };
-            animate = false; // Don't animate the first time
-        }
-        
-        // Check if we need to animate
-        if (animate && 
-            (_hardModeAnimation.currentPos.x !== _hardModeAnimation.targetPos.x || 
-             _hardModeAnimation.currentPos.y !== _hardModeAnimation.targetPos.y)) {
-            
-            // If the movement is very small, debounce the animation
-            const distanceSquared = 
-                Math.pow(_hardModeAnimation.targetPos.x - _hardModeAnimation.currentPos.x, 2) + 
-                Math.pow(_hardModeAnimation.targetPos.y - _hardModeAnimation.currentPos.y, 2);
-            
-            // If it's a small move, schedule using the debounced function
-            if (distanceSquared < (_maze.cellSize * _maze.cellSize * 4)) {
-                debouncedUpdateVisibleArea();
-                return;
-            }
-            
-            // Start the animation if not already running
-            if (!_hardModeAnimation.active) {
-                _hardModeAnimation.active = true;
-                _hardModeAnimation.startTime = null; // Will be set in the first frame
-                _hardModeAnimation.id = requestAnimationFrame(animateHardModeOverlay);
-            }
-        } else {
-            // No animation requested, just draw at the target position
-            _hardModeAnimation.currentPos = { x: centerX, y: centerY };
-            drawHardModeOverlay(centerX, centerY);
-        }
     }
     
     // Update maze information display without regenerating the maze
@@ -716,6 +368,12 @@ const MazeUI = (function() {
             // Initialize path manager for the new maze
             _pathManager = new PathManager(_maze, document.getElementById('maze'), rough.svg(document.getElementById('maze')));
             
+            // Update hard mode manager with new maze and path manager
+            if (_hardModeManager) {
+                _hardModeManager.setMaze(_maze);
+                _hardModeManager.setPathManager(_pathManager);
+            }
+            
             // Update dimensions display
             const dimensionsElement = document.getElementById('dimensions');
             if (dimensionsElement) {
@@ -736,21 +394,9 @@ const MazeUI = (function() {
             // Create resize handle for better touch UX
             createResizeHandle(document.getElementById('maze'));
             
-            // Reset hard mode animation state
-            if (_hardModeAnimation.active && _hardModeAnimation.id) {
-                cancelAnimationFrame(_hardModeAnimation.id);
-                _hardModeAnimation.id = null;
-                _hardModeAnimation.active = false;
-                _hardModeAnimation.startTime = null;
-            }
-            
-            // Reset position tracking
-            _hardModeAnimation.currentPos = { x: 0, y: 0 };
-            _hardModeAnimation.targetPos = { x: 0, y: 0 };
-            
-            // Apply hard mode overlay if enabled
-            if (_hardModeEnabled) {
-                updateHardModeOverlay(document.getElementById('maze'));
+            // Update the hard mode overlay if enabled
+            if (_hardModeManager && _hardModeManager.isEnabled()) {
+                _hardModeManager.updateOverlay();
             }
             
             // Resize seed input after generation
@@ -1038,78 +684,31 @@ const MazeUI = (function() {
             
             // Setup hard mode toggle
             if (hardModeToggle) {
-                // Set initial state based on local storage if available
-                const savedHardMode = localStorage.getItem('hardModeEnabled');
-                if (savedHardMode !== null) {
-                    _hardModeEnabled = savedHardMode === 'true';
-                    hardModeToggle.checked = _hardModeEnabled;
+                // Set initial state based on hard mode manager
+                if (_hardModeManager) {
+                    hardModeToggle.checked = _hardModeManager.isEnabled();
                     
                     // Update toggle container class based on initial state
                     const toggleContainer = hardModeToggle.closest('.hard-mode-toggle');
                     if (toggleContainer) {
-                        if (_hardModeEnabled) {
+                        if (_hardModeManager.isEnabled()) {
                             toggleContainer.classList.add('active');
                         } else {
                             toggleContainer.classList.remove('active');
                         }
-                    }
-                    
-                    // Apply immediately if enabled
-                    if (_hardModeEnabled && svgElement) {
-                        updateHardModeOverlay(svgElement);
                     }
                 }
                 
                 hardModeToggle.addEventListener('change', (e) => {
-                    _hardModeEnabled = e.target.checked;
-                    
-                    // Update toggle container class based on state
-                    const toggleContainer = e.target.closest('.hard-mode-toggle');
-                    if (toggleContainer) {
-                        if (_hardModeEnabled) {
-                            toggleContainer.classList.add('active');
-                        } else {
-                            toggleContainer.classList.remove('active');
-                        }
-                    }
-                    
-                    // Store preference in local storage
-                    localStorage.setItem('hardModeEnabled', _hardModeEnabled.toString());
-                    
-                    // Clear any ongoing animation
-                    if (_hardModeAnimation.active && _hardModeAnimation.id) {
-                        cancelAnimationFrame(_hardModeAnimation.id);
-                        _hardModeAnimation.id = null;
-                        _hardModeAnimation.active = false;
-                        _hardModeAnimation.startTime = null;
-                    }
-                    
-                    // Reset position tracking for clean state
-                    _hardModeAnimation.currentPos = { x: 0, y: 0 };
-                    _hardModeAnimation.targetPos = { x: 0, y: 0 };
-                    
-                    // Update the overlay
-                    if (_hardModeEnabled) {
-                        updateHardModeOverlay(svgElement);
-                    } else {
-                        // Remove overlay if disabling
-                        if (_hardModeOverlay) {
-                            svgElement.removeChild(_hardModeOverlay);
-                            _hardModeOverlay = null;
-                        }
-                    }
-                    
-                    // Update the hard mode star visibility
-                    const hardModeStar = document.querySelector('.hard-mode-star');
-                    if (hardModeStar) {
-                        hardModeStar.style.display = _hardModeEnabled ? 'inline-block' : 'none';
+                    if (_hardModeManager) {
+                        _hardModeManager.toggle();
                     }
                 });
                 
                 // Initially hide the hard mode star if hard mode is not enabled
                 const hardModeStar = document.querySelector('.hard-mode-star');
                 if (hardModeStar) {
-                    hardModeStar.style.display = _hardModeEnabled ? 'inline-block' : 'none';
+                    hardModeStar.style.display = _hardModeManager && _hardModeManager.isEnabled() ? 'inline-block' : 'none';
                 }
             }
             
@@ -1626,21 +1225,8 @@ const MazeUI = (function() {
             this.initializeUserPath();
             
             // Reset hard mode overlay to center on entrance if enabled
-            if (_hardModeEnabled) {
-                // Cancel any ongoing hard mode animation
-                if (_hardModeAnimation.active && _hardModeAnimation.id) {
-                    cancelAnimationFrame(_hardModeAnimation.id);
-                    _hardModeAnimation.id = null;
-                    _hardModeAnimation.active = false;
-                    _hardModeAnimation.startTime = null;
-                }
-                
-                // Reset position tracking
-                _hardModeAnimation.currentPos = { x: 0, y: 0 };
-                _hardModeAnimation.targetPos = { x: 0, y: 0 };
-                
-                // Update with no animation
-                updateVisibleArea(false);
+            if (_hardModeManager && _hardModeManager.isEnabled()) {
+                _hardModeManager.updateVisibleArea(false);
             }
             
             // Hide reset path button if the path is empty
@@ -1888,49 +1474,11 @@ const MazeUI = (function() {
             activity.completed = true;
             
             // Store whether it was completed in hard mode
-            activity.hardModeCompleted = _hardModeEnabled;
+            activity.hardModeCompleted = _hardModeManager && _hardModeManager.isEnabled();
             
-            // Remove the hard mode overlay to reveal the entire maze
-            if (_hardModeEnabled && _hardModeOverlay) {
-                const svgElement = document.getElementById('maze');
-                
-                // Cancel any ongoing hard mode animation
-                if (_hardModeAnimation.active && _hardModeAnimation.id) {
-                    cancelAnimationFrame(_hardModeAnimation.id);
-                    _hardModeAnimation.id = null;
-                    _hardModeAnimation.active = false;
-                    _hardModeAnimation.startTime = null;
-                }
-                
-                // Create a temporary "reveal" animation effect before removing the overlay
-                const revealFlash = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                revealFlash.setAttribute('x', 0);
-                revealFlash.setAttribute('y', 0);
-                revealFlash.setAttribute('width', svgElement.getAttribute('width'));
-                revealFlash.setAttribute('height', svgElement.getAttribute('height'));
-                revealFlash.setAttribute('fill', 'rgba(255, 255, 255, 0.7)');
-                revealFlash.setAttribute('class', 'completion-reveal');
-                
-                // Ensure it's on top of everything
-                svgElement.appendChild(revealFlash);
-                
-                // Fade out the flash and remove the hard mode overlay
-                setTimeout(() => {
-                    revealFlash.style.opacity = '0';
-                    
-                    // Remove the hard mode overlay
-                    if (svgElement.contains(_hardModeOverlay)) {
-                        svgElement.removeChild(_hardModeOverlay);
-                        _hardModeOverlay = null;
-                    }
-                    
-                    // Finally remove the flash overlay
-                    setTimeout(() => {
-                        if (svgElement.contains(revealFlash)) {
-                            svgElement.removeChild(revealFlash);
-                        }
-                    }, 500);
-                }, 100);
+            // Handle hard mode completion
+            if (_hardModeManager && _hardModeManager.isEnabled()) {
+                _hardModeManager.handleCompletion();
             }
             
             // Stop the timer and show the stats
@@ -2877,8 +2425,8 @@ const MazeUI = (function() {
             });
             
             // Update the hard mode visible area if enabled
-            if (_hardModeEnabled) {
-                updateVisibleArea();
+            if (_hardModeManager && _hardModeManager.isEnabled()) {
+                _hardModeManager.updateVisibleArea();
             }
             
             // Show reset path button if it's not already visible
@@ -2903,6 +2451,9 @@ const MazeUI = (function() {
             
             // Initialize renderer
             _mazeRenderer = new MazeApp.MazeRenderer(svgElement);
+            
+            // Initialize hard mode manager
+            _hardModeManager = new HardModeManager(svgElement);
             
             // Set up all event listeners
             MazeController.setupEventListeners();
