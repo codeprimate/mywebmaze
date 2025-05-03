@@ -14,6 +14,11 @@ const MazeUI = (function() {
     let _resizeOverlay = null;
     let _hardModeEnabled = false;
     let _hardModeOverlay = null;
+    let _hardModeAnimationId = null;
+    let _hardModeAnimationActive = false;
+    let _hardModeAnimationStart = null;
+    let _hardModeCurrentPos = { x: 0, y: 0 };
+    let _hardModeTargetPos = { x: 0, y: 0 };
     
     // Helper function for debouncing function calls
     function debounce(func, wait) {
@@ -146,8 +151,210 @@ const MazeUI = (function() {
         }
     }
     
+    // Cubic easing function for smooth animation (ease-in-out)
+    function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+    
+    // Ensure hard mode overlay has completely opaque black color to prevent any transparency artifacts
+    function ensureOpaqueOverlay() {
+        if (!_hardModeOverlay) return;
+        
+        // Ensure all filled elements have fully opaque black fill
+        const elements = _hardModeOverlay.querySelectorAll('[fill="#000000"]');
+        elements.forEach(element => {
+            // Force fully opaque black fill
+            element.setAttribute('fill', '#000000');
+            // Remove any transparency/opacity settings
+            element.removeAttribute('fill-opacity');
+            element.style.opacity = '1';
+        });
+    }
+    
+    // Animate the hard mode overlay between positions
+    function animateHardModeOverlay(timestamp) {
+        // If this is the first frame, store the start time
+        if (!_hardModeAnimationStart) {
+            _hardModeAnimationStart = timestamp;
+        }
+        
+        // Calculate elapsed time
+        const elapsed = timestamp - _hardModeAnimationStart;
+        const duration = 600; // Animation duration in milliseconds - increased from 300ms to 600ms
+        
+        // Calculate progress (0 to 1)
+        let progress = Math.min(elapsed / duration, 1);
+        
+        // Apply easing function
+        progress = easeInOutCubic(progress);
+        
+        // Lock progress to discrete steps to reduce flickering
+        if (progress < 0.05) progress = 0;
+        else if (progress > 0.95) progress = 1;
+        
+        // Calculate current position based on progress
+        const currentX = _hardModeCurrentPos.x + (_hardModeTargetPos.x - _hardModeCurrentPos.x) * progress;
+        const currentY = _hardModeCurrentPos.y + (_hardModeTargetPos.y - _hardModeCurrentPos.y) * progress;
+        
+        // Draw overlay at current position
+        drawHardModeOverlay(currentX, currentY);
+        
+        // Continue animation if not complete
+        if (progress < 1) {
+            _hardModeAnimationId = requestAnimationFrame(animateHardModeOverlay);
+        } else {
+            // Animation complete
+            _hardModeAnimationActive = false;
+            _hardModeAnimationId = null;
+            _hardModeAnimationStart = null;
+            
+            // Update the current position to match target
+            _hardModeCurrentPos = { x: _hardModeTargetPos.x, y: _hardModeTargetPos.y };
+        }
+    }
+    
+    // Draw the hard mode overlay at the specified position
+    function drawHardModeOverlay(centerX, centerY) {
+        if (!_hardModeEnabled || !_hardModeOverlay || !_maze) {
+            return;
+        }
+        
+        // Get the SVG element
+        const svgElement = document.getElementById('maze');
+        if (!svgElement) return;
+        
+        // Calculate visible radius - same logic as in updateVisibleArea
+        const minDimension = Math.min(_maze.width, _maze.height);
+        const maxRadius = Math.min(
+            (minDimension * _maze.cellSize * 0.2),  // 20% of the smaller maze dimension
+            5 * _maze.cellSize  // Max 5 cells radius
+        );
+        const minRadius = 2.5 * _maze.cellSize; // Minimum 2.5 cells radius
+        const visibleRadius = Math.max(minRadius, maxRadius);
+        
+        // SVG dimensions
+        const svgWidth = parseFloat(svgElement.getAttribute('width'));
+        const svgHeight = parseFloat(svgElement.getAttribute('height'));
+        
+        // Clear existing overlay content
+        while (_hardModeOverlay.firstChild) {
+            _hardModeOverlay.removeChild(_hardModeOverlay.firstChild);
+        }
+        
+        // Add 1px overlap to eliminate any gaps during animation
+        const overlap = 1;
+        
+        // Top rectangle (covers from top of the svg to top of the circle)
+        const topRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        topRect.setAttribute('x', 0);
+        topRect.setAttribute('y', 0);
+        topRect.setAttribute('width', svgWidth);
+        topRect.setAttribute('height', Math.max(0, centerY - visibleRadius) + overlap);
+        topRect.setAttribute('fill', '#000000');
+        
+        // Bottom rectangle (covers from bottom of the circle to bottom of the svg)
+        const bottomRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bottomRect.setAttribute('x', 0);
+        bottomRect.setAttribute('y', centerY + visibleRadius - overlap);
+        bottomRect.setAttribute('width', svgWidth);
+        bottomRect.setAttribute('height', Math.max(0, svgHeight - (centerY + visibleRadius)) + overlap);
+        bottomRect.setAttribute('fill', '#000000');
+        
+        // Left rectangle (covers left side of the circle area)
+        const leftRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        leftRect.setAttribute('x', 0);
+        leftRect.setAttribute('y', centerY - visibleRadius - overlap);
+        leftRect.setAttribute('width', Math.max(0, centerX - visibleRadius) + overlap);
+        leftRect.setAttribute('height', visibleRadius * 2 + (overlap * 2));
+        leftRect.setAttribute('fill', '#000000');
+        
+        // Right rectangle (covers right side of the circle area)
+        const rightRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rightRect.setAttribute('x', centerX + visibleRadius - overlap);
+        rightRect.setAttribute('y', centerY - visibleRadius - overlap);
+        rightRect.setAttribute('width', Math.max(0, svgWidth - (centerX + visibleRadius)) + overlap);
+        rightRect.setAttribute('height', visibleRadius * 2 + (overlap * 2));
+        rightRect.setAttribute('fill', '#000000');
+        
+        // Add all rectangles to the overlay
+        _hardModeOverlay.appendChild(topRect);
+        _hardModeOverlay.appendChild(bottomRect);
+        _hardModeOverlay.appendChild(leftRect);
+        _hardModeOverlay.appendChild(rightRect);
+        
+        // Add rounded corners to make it circular
+        // Use a path to create the 4 rounded corners
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        
+        // Top-left corner
+        const tlStartX = centerX - visibleRadius;
+        const tlStartY = centerY - visibleRadius;
+        // Top-right corner
+        const trStartX = centerX + visibleRadius;
+        const trStartY = centerY - visibleRadius;
+        // Bottom-left corner
+        const blStartX = centerX - visibleRadius;
+        const blStartY = centerY + visibleRadius;
+        // Bottom-right corner
+        const brStartX = centerX + visibleRadius;
+        const brStartY = centerY + visibleRadius;
+        
+        // Add a little extra extension to the corners to ensure proper overlap
+        const cornerExtension = 1;
+        
+        // Create path data for the four corner shapes
+        const pathData = [
+            // Top-left corner with extension
+            `M ${tlStartX - cornerExtension} ${centerY}`,
+            `A ${visibleRadius + cornerExtension} ${visibleRadius + cornerExtension} 0 0 1 ${centerX} ${tlStartY - cornerExtension}`,
+            `L ${tlStartX - cornerExtension} ${tlStartY - cornerExtension}`,
+            `Z`,
+            
+            // Top-right corner with extension
+            `M ${centerX} ${trStartY - cornerExtension}`,
+            `A ${visibleRadius + cornerExtension} ${visibleRadius + cornerExtension} 0 0 1 ${trStartX + cornerExtension} ${centerY}`,
+            `L ${trStartX + cornerExtension} ${trStartY - cornerExtension}`,
+            `Z`,
+            
+            // Bottom-right corner with extension
+            `M ${brStartX + cornerExtension} ${centerY}`,
+            `A ${visibleRadius + cornerExtension} ${visibleRadius + cornerExtension} 0 0 1 ${centerX} ${brStartY + cornerExtension}`,
+            `L ${brStartX + cornerExtension} ${brStartY + cornerExtension}`,
+            `Z`,
+            
+            // Bottom-left corner with extension
+            `M ${centerX} ${blStartY + cornerExtension}`,
+            `A ${visibleRadius + cornerExtension} ${visibleRadius + cornerExtension} 0 0 1 ${blStartX - cornerExtension} ${centerY}`,
+            `L ${blStartX - cornerExtension} ${blStartY + cornerExtension}`,
+            `Z`
+        ].join(' ');
+        
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', '#000000');
+        _hardModeOverlay.appendChild(path);
+        
+        // Ensure all elements are fully opaque to prevent white lines
+        ensureOpaqueOverlay();
+    }
+    
+    // The debounced version of visible area updates for rapid movements
+    const debouncedUpdateVisibleArea = debounce(function() {
+        if (_hardModeAnimationActive && _hardModeAnimationId) {
+            cancelAnimationFrame(_hardModeAnimationId);
+            _hardModeAnimationId = null;
+        }
+        
+        // Reset animation state and use final target position
+        _hardModeCurrentPos = { x: _hardModeTargetPos.x, y: _hardModeTargetPos.y };
+        _hardModeAnimationActive = false;
+        _hardModeAnimationStart = null;
+        
+        // Call update for final position
+        updateVisibleArea(false);
+    }, 400); // Increased from 300ms to 400ms
+    
     // Update the visible area around the path anchor
-    function updateVisibleArea() {
+    function updateVisibleArea(animate = true) {
         if (!_hardModeEnabled || !_hardModeOverlay || !_maze || !_pathManager) {
             return;
         }
@@ -177,123 +384,45 @@ const MazeUI = (function() {
         const centerX = centerCol * _maze.cellSize + (_maze.cellSize / 2) + padding;
         const centerY = centerRow * _maze.cellSize + (_maze.cellSize / 2) + padding;
         
-        // Calculate visible radius - minimum 2 cells, maximum 20% of maze minimum extent
-        const minDimension = Math.min(_maze.width, _maze.height);
-        const maxRadius = Math.min(
-            (minDimension * _maze.cellSize * 0.2),  // 20% of the smaller maze dimension
-            5 * _maze.cellSize  // Max 5 cells radius
-        );
-        const minRadius = 2.5 * _maze.cellSize; // Minimum 2.5 cells radius
-        const visibleRadius = Math.max(minRadius, maxRadius);
+        // Update the target position
+        _hardModeTargetPos = { x: centerX, y: centerY };
         
-        // SVG dimensions
-        const svgWidth = parseFloat(svgElement.getAttribute('width'));
-        const svgHeight = parseFloat(svgElement.getAttribute('height'));
-        
-        // Clear existing overlay content
-        while (_hardModeOverlay.firstChild) {
-            _hardModeOverlay.removeChild(_hardModeOverlay.firstChild);
+        // For first-time initialization
+        if (!_hardModeCurrentPos.x && !_hardModeCurrentPos.y) {
+            _hardModeCurrentPos = { x: centerX, y: centerY };
+            animate = false; // Don't animate the first time
         }
         
-        // Create a much simpler approach: create a clipping area in a different way
-        // Instead of trying to be clever with blend modes or complex masks, draw four rectangles to create a frame
-        
-        // Top rectangle (covers from top of the svg to top of the circle)
-        const topRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        topRect.setAttribute('x', 0);
-        topRect.setAttribute('y', 0);
-        topRect.setAttribute('width', svgWidth);
-        topRect.setAttribute('height', Math.max(0, centerY - visibleRadius));
-        topRect.setAttribute('fill', '#000000');
-        
-        // Bottom rectangle (covers from bottom of the circle to bottom of the svg)
-        const bottomRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bottomRect.setAttribute('x', 0);
-        bottomRect.setAttribute('y', centerY + visibleRadius);
-        bottomRect.setAttribute('width', svgWidth);
-        bottomRect.setAttribute('height', Math.max(0, svgHeight - (centerY + visibleRadius)));
-        bottomRect.setAttribute('fill', '#000000');
-        
-        // Left rectangle (covers left side of the circle area)
-        const leftRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        leftRect.setAttribute('x', 0);
-        leftRect.setAttribute('y', centerY - visibleRadius);
-        leftRect.setAttribute('width', Math.max(0, centerX - visibleRadius));
-        leftRect.setAttribute('height', visibleRadius * 2);
-        leftRect.setAttribute('fill', '#000000');
-        
-        // Right rectangle (covers right side of the circle area)
-        const rightRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rightRect.setAttribute('x', centerX + visibleRadius);
-        rightRect.setAttribute('y', centerY - visibleRadius);
-        rightRect.setAttribute('width', Math.max(0, svgWidth - (centerX + visibleRadius)));
-        rightRect.setAttribute('height', visibleRadius * 2);
-        rightRect.setAttribute('fill', '#000000');
-        
-        // Add all rectangles to the overlay
-        _hardModeOverlay.appendChild(topRect);
-        _hardModeOverlay.appendChild(bottomRect);
-        _hardModeOverlay.appendChild(leftRect);
-        _hardModeOverlay.appendChild(rightRect);
-        
-        // Add rounded corners to make it circular
-        // Use a path to create the 4 rounded corners
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        
-        // Top-left corner
-        const tlStartX = centerX - visibleRadius;
-        const tlStartY = centerY - visibleRadius;
-        // Top-right corner
-        const trStartX = centerX + visibleRadius;
-        const trStartY = centerY - visibleRadius;
-        // Bottom-left corner
-        const blStartX = centerX - visibleRadius;
-        const blStartY = centerY + visibleRadius;
-        // Bottom-right corner
-        const brStartX = centerX + visibleRadius;
-        const brStartY = centerY + visibleRadius;
-        
-        // Create path data for the four corner shapes
-        const pathData = [
-            // Top-left corner
-            `M ${tlStartX} ${centerY}`,
-            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${centerX} ${tlStartY}`,
-            `L ${tlStartX} ${tlStartY}`,
-            `Z`,
+        // Check if we need to animate
+        if (animate && 
+            (_hardModeCurrentPos.x !== _hardModeTargetPos.x || 
+             _hardModeCurrentPos.y !== _hardModeTargetPos.y)) {
             
-            // Top-right corner
-            `M ${centerX} ${trStartY}`,
-            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${trStartX} ${centerY}`,
-            `L ${trStartX} ${trStartY}`,
-            `Z`,
+            // If the movement is very small, debounce the animation
+            const distanceSquared = 
+                Math.pow(_hardModeTargetPos.x - _hardModeCurrentPos.x, 2) + 
+                Math.pow(_hardModeTargetPos.y - _hardModeCurrentPos.y, 2);
             
-            // Bottom-right corner
-            `M ${brStartX} ${centerY}`,
-            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${centerX} ${brStartY}`,
-            `L ${brStartX} ${brStartY}`,
-            `Z`,
+            // If it's a small move (increased threshold for smoother transitions), schedule using the debounced function
+            if (distanceSquared < (_maze.cellSize * _maze.cellSize * 4)) { // Increased from 2 to 4 for more debouncing
+                debouncedUpdateVisibleArea();
+                return;
+            }
             
-            // Bottom-left corner
-            `M ${centerX} ${blStartY}`,
-            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${blStartX} ${centerY}`,
-            `L ${blStartX} ${blStartY}`,
-            `Z`
-        ].join(' ');
-        
-        path.setAttribute('d', pathData);
-        path.setAttribute('fill', '#000000');
-        _hardModeOverlay.appendChild(path);
-        
-        // Add a subtle border around the visible area
-        const visibleBorder = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        visibleBorder.setAttribute('cx', centerX);
-        visibleBorder.setAttribute('cy', centerY);
-        visibleBorder.setAttribute('r', visibleRadius);
-        visibleBorder.setAttribute('fill', 'none');
-        visibleBorder.setAttribute('stroke', 'rgba(255, 255, 255, 0.3)');
-        visibleBorder.setAttribute('stroke-width', '2');
-        
-        _hardModeOverlay.appendChild(visibleBorder);
+            // Start the animation if not already running
+            if (!_hardModeAnimationActive) {
+                _hardModeAnimationActive = true;
+                _hardModeAnimationStart = null; // Will be set in the first frame
+                _hardModeAnimationId = requestAnimationFrame(animateHardModeOverlay);
+            } else {
+                // Animation already running, just update the target
+                // The current animation will continue toward the new target
+            }
+        } else {
+            // No animation requested, just draw at the target position
+            _hardModeCurrentPos = { x: centerX, y: centerY };
+            drawHardModeOverlay(centerX, centerY);
+        }
     }
     
     // Update maze information display without regenerating the maze
@@ -581,6 +710,18 @@ const MazeUI = (function() {
             
             // Create resize handle for better touch UX
             createResizeHandle(document.getElementById('maze'));
+            
+            // Reset hard mode animation state
+            if (_hardModeAnimationActive && _hardModeAnimationId) {
+                cancelAnimationFrame(_hardModeAnimationId);
+                _hardModeAnimationId = null;
+                _hardModeAnimationActive = false;
+                _hardModeAnimationStart = null;
+            }
+            
+            // Reset position tracking
+            _hardModeCurrentPos = { x: 0, y: 0 };
+            _hardModeTargetPos = { x: 0, y: 0 };
             
             // Apply hard mode overlay if enabled
             if (_hardModeEnabled) {
@@ -909,6 +1050,18 @@ const MazeUI = (function() {
                     
                     // Store preference in local storage
                     localStorage.setItem('hardModeEnabled', _hardModeEnabled.toString());
+                    
+                    // Clear any ongoing animation
+                    if (_hardModeAnimationActive && _hardModeAnimationId) {
+                        cancelAnimationFrame(_hardModeAnimationId);
+                        _hardModeAnimationId = null;
+                        _hardModeAnimationActive = false;
+                        _hardModeAnimationStart = null;
+                    }
+                    
+                    // Reset position tracking for clean state
+                    _hardModeCurrentPos = { x: 0, y: 0 };
+                    _hardModeTargetPos = { x: 0, y: 0 };
                     
                     // Update the overlay
                     if (_hardModeEnabled) {
@@ -1449,7 +1602,20 @@ const MazeUI = (function() {
             
             // Reset hard mode overlay to center on entrance if enabled
             if (_hardModeEnabled) {
-                updateVisibleArea();
+                // Cancel any ongoing hard mode animation
+                if (_hardModeAnimationActive && _hardModeAnimationId) {
+                    cancelAnimationFrame(_hardModeAnimationId);
+                    _hardModeAnimationId = null;
+                    _hardModeAnimationActive = false;
+                    _hardModeAnimationStart = null;
+                }
+                
+                // Reset position tracking
+                _hardModeCurrentPos = { x: 0, y: 0 };
+                _hardModeTargetPos = { x: 0, y: 0 };
+                
+                // Update with no animation
+                updateVisibleArea(false);
             }
             
             // Hide reset path button if the path is empty
@@ -1702,6 +1868,13 @@ const MazeUI = (function() {
             // Remove the hard mode overlay to reveal the entire maze
             if (_hardModeEnabled && _hardModeOverlay) {
                 const svgElement = document.getElementById('maze');
+                
+                // Cancel any ongoing hard mode animation
+                if (_hardModeAnimationActive && _hardModeAnimationId) {
+                    cancelAnimationFrame(_hardModeAnimationId);
+                    _hardModeAnimationId = null;
+                    _hardModeAnimationActive = false;
+                }
                 
                 // Create a temporary "reveal" animation effect before removing the overlay
                 const revealFlash = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
