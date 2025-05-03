@@ -12,6 +12,8 @@ const MazeUI = (function() {
     let _resizeTimeout = null;
     let _proposedWidth, _proposedHeight, _proposedCellSize;
     let _resizeOverlay = null;
+    let _hardModeEnabled = false;
+    let _hardModeOverlay = null;
     
     // Helper function for debouncing function calls
     function debounce(func, wait) {
@@ -99,6 +101,199 @@ const MazeUI = (function() {
         
         // Add to SVG
         svgElement.appendChild(handleGroup);
+    }
+    
+    // Create or update the hard mode overlay
+    function updateHardModeOverlay(svgElement, visible = true) {
+        // Remove existing overlay if there is one
+        if (_hardModeOverlay) {
+            // Check if the overlay is actually a child of this SVG element before removing
+            if (svgElement.contains(_hardModeOverlay)) {
+                svgElement.removeChild(_hardModeOverlay);
+            }
+            _hardModeOverlay = null;
+        }
+        
+        // If hard mode is not enabled or visible is false, don't create a new overlay
+        if (!_hardModeEnabled || !visible) {
+            return;
+        }
+        
+        // Create overlay group
+        _hardModeOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        _hardModeOverlay.setAttribute('id', 'hard-mode-overlay');
+        
+        // Add the overlay group to the SVG
+        svgElement.appendChild(_hardModeOverlay);
+        
+        // If there's a path manager, update the visible area
+        if (_pathManager && _maze) {
+            updateVisibleArea();
+        } else {
+            // Create a simple full overlay as placeholder until we have a path
+            const svgWidth = parseFloat(svgElement.getAttribute('width'));
+            const svgHeight = parseFloat(svgElement.getAttribute('height'));
+            
+            const placeholder = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            placeholder.setAttribute('x', '0');
+            placeholder.setAttribute('y', '0');
+            placeholder.setAttribute('width', svgWidth);
+            placeholder.setAttribute('height', svgHeight);
+            placeholder.setAttribute('fill', '#000000'); // Completely black, fully opaque
+            placeholder.setAttribute('class', 'hard-mode-mask placeholder');
+            
+            _hardModeOverlay.appendChild(placeholder);
+        }
+    }
+    
+    // Update the visible area around the path anchor
+    function updateVisibleArea() {
+        if (!_hardModeEnabled || !_hardModeOverlay || !_maze || !_pathManager) {
+            return;
+        }
+        
+        // Get the SVG element and its dimensions
+        const svgElement = document.getElementById('maze');
+        if (!svgElement) return;
+        
+        // Get current path end position
+        let centerRow, centerCol;
+        
+        if (_maze.userPath && _maze.userPath.length > 0) {
+            // Use the last cell in the path as the center
+            const lastCell = _maze.userPath[_maze.userPath.length - 1];
+            centerRow = lastCell.row;
+            centerCol = lastCell.col;
+        } else if (_maze.entrance) {
+            // If no path yet, use the entrance
+            centerRow = _maze.entrance.row;
+            centerCol = _maze.entrance.col;
+        } else {
+            return; // No reference point available
+        }
+        
+        // Calculate the center point in SVG coordinates
+        const padding = getPadding();
+        const centerX = centerCol * _maze.cellSize + (_maze.cellSize / 2) + padding;
+        const centerY = centerRow * _maze.cellSize + (_maze.cellSize / 2) + padding;
+        
+        // Calculate visible radius - minimum 2 cells, maximum 20% of maze minimum extent
+        const minDimension = Math.min(_maze.width, _maze.height);
+        const maxRadius = Math.min(
+            (minDimension * _maze.cellSize * 0.2),  // 20% of the smaller maze dimension
+            5 * _maze.cellSize  // Max 5 cells radius
+        );
+        const minRadius = 2.5 * _maze.cellSize; // Minimum 2.5 cells radius
+        const visibleRadius = Math.max(minRadius, maxRadius);
+        
+        // SVG dimensions
+        const svgWidth = parseFloat(svgElement.getAttribute('width'));
+        const svgHeight = parseFloat(svgElement.getAttribute('height'));
+        
+        // Clear existing overlay content
+        while (_hardModeOverlay.firstChild) {
+            _hardModeOverlay.removeChild(_hardModeOverlay.firstChild);
+        }
+        
+        // Create a much simpler approach: create a clipping area in a different way
+        // Instead of trying to be clever with blend modes or complex masks, draw four rectangles to create a frame
+        
+        // Top rectangle (covers from top of the svg to top of the circle)
+        const topRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        topRect.setAttribute('x', 0);
+        topRect.setAttribute('y', 0);
+        topRect.setAttribute('width', svgWidth);
+        topRect.setAttribute('height', Math.max(0, centerY - visibleRadius));
+        topRect.setAttribute('fill', '#000000');
+        
+        // Bottom rectangle (covers from bottom of the circle to bottom of the svg)
+        const bottomRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bottomRect.setAttribute('x', 0);
+        bottomRect.setAttribute('y', centerY + visibleRadius);
+        bottomRect.setAttribute('width', svgWidth);
+        bottomRect.setAttribute('height', Math.max(0, svgHeight - (centerY + visibleRadius)));
+        bottomRect.setAttribute('fill', '#000000');
+        
+        // Left rectangle (covers left side of the circle area)
+        const leftRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        leftRect.setAttribute('x', 0);
+        leftRect.setAttribute('y', centerY - visibleRadius);
+        leftRect.setAttribute('width', Math.max(0, centerX - visibleRadius));
+        leftRect.setAttribute('height', visibleRadius * 2);
+        leftRect.setAttribute('fill', '#000000');
+        
+        // Right rectangle (covers right side of the circle area)
+        const rightRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rightRect.setAttribute('x', centerX + visibleRadius);
+        rightRect.setAttribute('y', centerY - visibleRadius);
+        rightRect.setAttribute('width', Math.max(0, svgWidth - (centerX + visibleRadius)));
+        rightRect.setAttribute('height', visibleRadius * 2);
+        rightRect.setAttribute('fill', '#000000');
+        
+        // Add all rectangles to the overlay
+        _hardModeOverlay.appendChild(topRect);
+        _hardModeOverlay.appendChild(bottomRect);
+        _hardModeOverlay.appendChild(leftRect);
+        _hardModeOverlay.appendChild(rightRect);
+        
+        // Add rounded corners to make it circular
+        // Use a path to create the 4 rounded corners
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        
+        // Top-left corner
+        const tlStartX = centerX - visibleRadius;
+        const tlStartY = centerY - visibleRadius;
+        // Top-right corner
+        const trStartX = centerX + visibleRadius;
+        const trStartY = centerY - visibleRadius;
+        // Bottom-left corner
+        const blStartX = centerX - visibleRadius;
+        const blStartY = centerY + visibleRadius;
+        // Bottom-right corner
+        const brStartX = centerX + visibleRadius;
+        const brStartY = centerY + visibleRadius;
+        
+        // Create path data for the four corner shapes
+        const pathData = [
+            // Top-left corner
+            `M ${tlStartX} ${centerY}`,
+            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${centerX} ${tlStartY}`,
+            `L ${tlStartX} ${tlStartY}`,
+            `Z`,
+            
+            // Top-right corner
+            `M ${centerX} ${trStartY}`,
+            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${trStartX} ${centerY}`,
+            `L ${trStartX} ${trStartY}`,
+            `Z`,
+            
+            // Bottom-right corner
+            `M ${brStartX} ${centerY}`,
+            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${centerX} ${brStartY}`,
+            `L ${brStartX} ${brStartY}`,
+            `Z`,
+            
+            // Bottom-left corner
+            `M ${centerX} ${blStartY}`,
+            `A ${visibleRadius} ${visibleRadius} 0 0 1 ${blStartX} ${centerY}`,
+            `L ${blStartX} ${blStartY}`,
+            `Z`
+        ].join(' ');
+        
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', '#000000');
+        _hardModeOverlay.appendChild(path);
+        
+        // Add a subtle border around the visible area
+        const visibleBorder = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        visibleBorder.setAttribute('cx', centerX);
+        visibleBorder.setAttribute('cy', centerY);
+        visibleBorder.setAttribute('r', visibleRadius);
+        visibleBorder.setAttribute('fill', 'none');
+        visibleBorder.setAttribute('stroke', 'rgba(255, 255, 255, 0.3)');
+        visibleBorder.setAttribute('stroke-width', '2');
+        
+        _hardModeOverlay.appendChild(visibleBorder);
     }
     
     // Update maze information display without regenerating the maze
@@ -387,6 +582,11 @@ const MazeUI = (function() {
             // Create resize handle for better touch UX
             createResizeHandle(document.getElementById('maze'));
             
+            // Apply hard mode overlay if enabled
+            if (_hardModeEnabled) {
+                updateHardModeOverlay(document.getElementById('maze'));
+            }
+            
             // Resize seed input after generation
             this.resizeInput();
         },
@@ -662,11 +862,57 @@ const MazeUI = (function() {
             const downloadPngBtn = document.getElementById('downloadPngBtn');
             const downloadFullSheetBtn = document.getElementById('downloadFullSheetBtn');
             const showMarkersToggle = document.getElementById('showMarkers');
+            const hardModeToggle = document.getElementById('hardModeToggle');
             
             if (!svgElement || !widthInput || !heightInput || !cellSizeInput || !seedInput || 
                 !generateBtn || !downloadBtn || !downloadPngBtn || !downloadFullSheetBtn) {
                 console.error('Required DOM elements not found');
                 return;
+            }
+            
+            // Setup hard mode toggle
+            if (hardModeToggle) {
+                // Set initial state based on local storage if available
+                const savedHardMode = localStorage.getItem('hardModeEnabled');
+                if (savedHardMode !== null) {
+                    _hardModeEnabled = savedHardMode === 'true';
+                    hardModeToggle.checked = _hardModeEnabled;
+                    
+                    // Apply immediately if enabled
+                    if (_hardModeEnabled && svgElement) {
+                        updateHardModeOverlay(svgElement);
+                    }
+                }
+                
+                hardModeToggle.addEventListener('change', (e) => {
+                    _hardModeEnabled = e.target.checked;
+                    
+                    // Store preference in local storage
+                    localStorage.setItem('hardModeEnabled', _hardModeEnabled.toString());
+                    
+                    // Update the overlay
+                    if (_hardModeEnabled) {
+                        updateHardModeOverlay(svgElement);
+                    } else {
+                        // Remove overlay if disabling
+                        if (_hardModeOverlay) {
+                            svgElement.removeChild(_hardModeOverlay);
+                            _hardModeOverlay = null;
+                        }
+                    }
+                    
+                    // Update the hard mode star visibility
+                    const hardModeStar = document.querySelector('.hard-mode-star');
+                    if (hardModeStar) {
+                        hardModeStar.style.display = _hardModeEnabled ? 'inline-block' : 'none';
+                    }
+                });
+                
+                // Initially hide the hard mode star if hard mode is not enabled
+                const hardModeStar = document.querySelector('.hard-mode-star');
+                if (hardModeStar) {
+                    hardModeStar.style.display = _hardModeEnabled ? 'inline-block' : 'none';
+                }
             }
             
             // Add input event listener for dynamic resizing
@@ -1124,6 +1370,11 @@ const MazeUI = (function() {
             this.initializeUserPath();
             this.clearPathGraphics();
             
+            // Reset hard mode overlay to center on entrance if enabled
+            if (_hardModeEnabled) {
+                updateVisibleArea();
+            }
+            
             // Hide reset path button if the path is empty
             if (this.resetPathBtn && this.maze.userPath.length === 0) {
                 this.resetPathBtn.style.display = 'none';
@@ -1345,6 +1596,11 @@ const MazeUI = (function() {
                 timestamp: Date.now()
             });
             
+            // Update the hard mode visible area if enabled
+            if (_hardModeEnabled) {
+                updateVisibleArea();
+            }
+            
             // Render the updated path
             this.renderPath();
             
@@ -1368,6 +1624,44 @@ const MazeUI = (function() {
             activity.completionTime = Date.now();
             activity.duration = activity.completionTime - activity.startTime;
             activity.completed = true;
+            
+            // Store whether it was completed in hard mode
+            activity.hardModeCompleted = _hardModeEnabled;
+            
+            // Remove the hard mode overlay to reveal the entire maze
+            if (_hardModeEnabled && _hardModeOverlay) {
+                const svgElement = document.getElementById('maze');
+                
+                // Create a temporary "reveal" animation effect before removing the overlay
+                const revealFlash = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                revealFlash.setAttribute('x', 0);
+                revealFlash.setAttribute('y', 0);
+                revealFlash.setAttribute('width', svgElement.getAttribute('width'));
+                revealFlash.setAttribute('height', svgElement.getAttribute('height'));
+                revealFlash.setAttribute('fill', 'rgba(255, 255, 255, 0.7)');
+                revealFlash.setAttribute('class', 'completion-reveal');
+                
+                // Ensure it's on top of everything
+                svgElement.appendChild(revealFlash);
+                
+                // Fade out the flash and remove the hard mode overlay
+                setTimeout(() => {
+                    revealFlash.style.opacity = '0';
+                    
+                    // Remove the hard mode overlay
+                    if (svgElement.contains(_hardModeOverlay)) {
+                        svgElement.removeChild(_hardModeOverlay);
+                        _hardModeOverlay = null;
+                    }
+                    
+                    // Finally remove the flash overlay
+                    setTimeout(() => {
+                        if (svgElement.contains(revealFlash)) {
+                            svgElement.removeChild(revealFlash);
+                        }
+                    }, 500);
+                }, 100);
+            }
             
             // Stop the timer and show the stats
             this.stopTimerAndShowStats();
@@ -2067,10 +2361,12 @@ const MazeUI = (function() {
         
         // Update star rating based on score
         updateStarRating(score) {
-            const stars = document.querySelectorAll('.star-rating .star');
+            const stars = document.querySelectorAll('.star-rating .star:not(.hard-mode-star)');
+            const hardModeStar = document.querySelector('.star-rating .hard-mode-star');
+            
             if (!stars.length) return;
             
-            // Calculate how many stars to fill (max 5 stars)
+            // Calculate how many stars to fill (max 5 regular stars)
             // Adjusted scale to require 90+ for 5 stars:
             // 1-17: 1 star, 18-35: 2 stars, 36-53: 3 stars, 54-89: 4 stars, 90-100: 5 stars
             let filledStars;
@@ -2080,7 +2376,7 @@ const MazeUI = (function() {
             else if (score >= 18) filledStars = 2;
             else filledStars = 1;
             
-            // Update each star
+            // Update each regular star
             stars.forEach(star => {
                 const index = parseInt(star.getAttribute('data-index'), 10);
                 
@@ -2095,6 +2391,14 @@ const MazeUI = (function() {
                     }, (index - 1) * 150);
                 }
             });
+            
+            // Handle the hard mode star
+            if (hardModeStar && this.maze.userActivity.hardModeCompleted) {
+                // Fill the hard mode star with a special animation after all other stars
+                setTimeout(() => {
+                    hardModeStar.classList.add('filled', 'special-shine');
+                }, 5 * 150 + 300); // Add extra delay after the 5th star
+            }
         }
         
         // Calculate the user's performance score

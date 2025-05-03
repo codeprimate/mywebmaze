@@ -401,17 +401,17 @@ input:focus + .slider {
 
 /* Difficulty and dimension display */
 .difficulty-score {
-  color: var(--color-text);
-  font-size: 0.9em;
-  margin: var(--spacing-xs) auto;
-  text-align: center;
+  font-style: italic;
+  font-weight: bold;
+  margin-left: var(--spacing-xs);
 }
 
 .dimensions-display {
   text-align: center;
-  margin: 0;
-  padding: 0;
-  font-size: 1.2em;
+  margin: var(--spacing-md) 0;
+  font-size: 1.1em;
+  color: var(--color-text-dark);
+  font-weight: bold;
 }
 
 /* Footer */
@@ -466,7 +466,7 @@ input:focus + .slider {
 #maze-activity-tracker {
   margin: var(--spacing-md) auto;
   padding: var(--spacing-md);
-  max-width: 280px;
+  max-width: 300px;
   background: var(--color-bg-light);
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
@@ -667,4 +667,61 @@ input:focus + .slider {
 #difficulty-score.estimated {
     font-style: italic;
     opacity: 0.8;
+}
+
+/* Hard mode toggle */
+.hard-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin: var(--spacing-md) 0;
+  justify-content: center;
+  position: relative;
+}
+
+.hard-mode-toggle .tooltip {
+  font-size: 0.7em;
+  color: var(--color-text-secondary);
+  margin-left: var(--spacing-xs);
+}
+
+/* Hard mode star */
+.hard-mode-star {
+  transform: scale(1.3);
+  margin-left: var(--spacing-xs);
+  color: gold;
+  position: relative;
+}
+
+.hard-mode-star::before {
+  content: "★";
+}
+
+.hard-mode-star.filled {
+  color: var(--color-star-filled);
+  text-shadow: 0 0 10px gold, 0 0 20px orange;
+}
+
+.hard-mode-star.filled.special-shine::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background: radial-gradient(circle, rgba(255,215,0,0.5) 0%, rgba(255,215,0,0) 70%);
+  border-radius: 50%;
+  z-index: -1;
+  animation: special-shine 2s ease-out;
+}
+
+@keyframes special-shine {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.5); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+/* Completion reveal animation */
+.completion-reveal {
+  transition: opacity 0.5s ease-out;
 }

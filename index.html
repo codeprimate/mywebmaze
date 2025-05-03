@@ -38,6 +38,15 @@
                 <span id="difficulty-score" class="difficulty-score"></span>
             </div>
             
+            <div class="hard-mode-toggle">
+                <label class="switch" for="hardModeToggle">
+                    <input type="checkbox" id="hardModeToggle">
+                    <span class="slider"></span>
+                </label>
+                <label for="hardModeToggle">Hard Mode</label>
+                <span class="tooltip">Only see part of the maze while solving</span>
+            </div>
+            
             <div id="maze-activity-tracker" class="maze-ui-component">
                 <div id="maze-timer-section">
                     <div id="maze-timer">00:00</div>
@@ -51,6 +60,7 @@
                             <span class="star" data-index="3"></span>
                             <span class="star" data-index="4"></span>
                             <span class="star" data-index="5"></span>
+                            <span class="star hard-mode-star" data-index="6"></span>
                         </div>
                     </div>
                     <div class="maze-stat">
@@ -124,6 +134,7 @@
                     <li><strong>Change Shape:</strong> Drag the bottom-right corner to make the maze wider or taller.</li>
                     <li><strong>New Maze:</strong> Click reload or type a number to create a different maze.</li>
                     <li><strong>Solve Maze:</strong> Click and drag to draw a path from entrance to exit. Use the Reset Path button to clear your solution and try again.</li>
+                    <li><strong>Hard Mode:</strong> Only see part of the maze as you solve it for an extra challenge. Earn a special 6th star if you complete it!</li>
                     <li><strong>Save Maze:</strong> Click SVG or PNG buttons to save your maze as a file.</li>
                     <li><strong>Multiple Mazes:</strong> Click "Multiple Mazes" to download a PDF with several mazes on one page.</li>
                 </ul>
