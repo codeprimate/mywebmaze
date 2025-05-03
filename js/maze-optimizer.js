@@ -51,7 +51,11 @@ class MazeOptimizer {
     seedRandom(seed) {
         let value = seed;
         return () => {
+            // Linear Congruential Generator (Park-Miller variant)
+            // 16807 = 7^5, a prime number used as the multiplier
             value = (value * 16807) % 2147483647;
+            // 2147483647 = 2^31-1, a Mersenne prime used as the modulus
+            // (value-1)/2147483646 normalizes the result to range [0,1)
             return (value - 1) / 2147483646;
         };
     }
