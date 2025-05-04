@@ -111,8 +111,7 @@ button:focus-visible {
 /* Styled buttons with borders */
 #downloadBtn::before,
 #downloadPngBtn::before,
-#downloadFullSheetBtn::before,
-#resetPathBtn::before {
+#downloadFullSheetBtn::before {
   content: '';
   position: absolute;
   top: 0;
@@ -126,8 +125,7 @@ button:focus-visible {
 
 #downloadBtn:hover::before,
 #downloadPngBtn:hover::before,
-#downloadFullSheetBtn:hover::before,
-#resetPathBtn:hover::before {
+#downloadFullSheetBtn:hover::before {
   transform: rotate(1deg);
 }
 
@@ -366,9 +364,28 @@ input:focus + .slider {
 
 /* Path controls */
 #resetPathBtn {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+  min-width: 60px;
+  min-height: 60px;
+  padding: 0;
+  display: block;
+  margin: 0 auto;
+  background-color: transparent;
+  border: none;
+}
+
+#resetPathBtn .reload-icon {
+  width: 30px;
+  height: 30px;
+  margin-right: 0;
+}
+
+/* Remove all the border styling completely */
+#resetPathBtn::before {
+  display: none;
+}
+
+#resetPathBtn:hover::before {
+  display: none;
 }
 
 /* Resize handle */
@@ -464,8 +481,8 @@ input:focus + .slider {
 
 /* Activity Tracker Styles */
 #maze-activity-tracker {
-  margin: var(--spacing-md) auto;
-  padding: var(--spacing-md);
+  margin: var(--spacing-sm) auto;
+  padding: var(--spacing-sm);
   max-width: 300px;
   background: var(--color-bg-light);
   border-radius: var(--border-radius);
@@ -514,7 +531,7 @@ input:focus + .slider {
 }
 
 #maze-status {
-  font-size: 0.8em;
+  font-size: 1em;
   color: var(--color-text-secondary);
 }
 

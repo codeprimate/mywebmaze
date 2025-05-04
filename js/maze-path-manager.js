@@ -60,11 +60,8 @@ class PathManager {
         this.debugEnabled = this.getUrlParam('debug');
         this.debugElement = document.getElementById('debug-info');
         
-        // Hide reset path button by default
+        // Reference reset path button without changing visibility
         this.resetPathBtn = document.getElementById('resetPathBtn');
-        if (this.resetPathBtn) {
-            this.resetPathBtn.style.display = 'none';
-        }
         
         // Show debug panel if debug is enabled
         if (this.debugElement) {
@@ -265,11 +262,6 @@ class PathManager {
         // Reset hard mode overlay to center on entrance if enabled
         if (this.hardModeManager && this.hardModeManager.isEnabled()) {
             this.hardModeManager.updateVisibleArea(false);
-        }
-        
-        // Hide reset path button if the path is empty
-        if (this.resetPathBtn && this.maze.userPath.length === 0) {
-            this.resetPathBtn.style.display = 'none';
         }
         
         // If maze was completed, reset the exit marker
@@ -802,11 +794,6 @@ class PathManager {
                     this.addCellToPath(entranceCell);
                     this.isDrawing = true;
                     this.lastCell = entranceCell;
-                    
-                    // Show reset path button once user starts tracing
-                    if (this.resetPathBtn) {
-                        this.resetPathBtn.style.display = 'flex';
-                    }
                 } else {
                     // Clicked elsewhere, don't start the path
                     this.debug(`Click ignored - must start path from entrance cell`, 'warning');
@@ -1335,11 +1322,6 @@ class PathManager {
         // Update the hard mode visible area if enabled
         if (this.hardModeManager && this.hardModeManager.isEnabled()) {
             this.hardModeManager.updateVisibleArea();
-        }
-        
-        // Show reset path button if it's not already visible
-        if (this.resetPathBtn && this.resetPathBtn.style.display === 'none') {
-            this.resetPathBtn.style.display = 'flex';
         }
     }
 }
