@@ -13,6 +13,9 @@ const MazeUI = (function() {
     let _proposedWidth, _proposedHeight, _proposedCellSize;
     let _resizeOverlay = null;
     let _hardModeManager = null;
+    let _isPinching = false;
+    let _pinchDistance = 0;
+    let _pinchIndicatorTimeout = null;
     
     // Helper function for debouncing function calls
     function debounce(func, wait) {
@@ -46,6 +49,127 @@ const MazeUI = (function() {
     function getPadding() {
         // Use a fixed padding that doesn't vary with cell size
         return 10; // Constant padding of 20px
+    }
+    
+    // Setup pinch-zoom functionality for cell resizing
+    function setupPinchZoom(svgElement) {
+        const cellSizeInput = document.getElementById('cellSize');
+        const pinchIndicator = document.getElementById('pinch-zoom-indicator');
+        const currentCellSizeDisplay = document.getElementById('current-cell-size');
+        
+        // Create a proper debounced function for pinch events
+        const debouncedPinchChange = debounce(() => {
+            applyProposedDimensions();
+        }, 500);
+        
+        // Update the cell size display
+        const updateCellSizeDisplay = (size) => {
+            if (currentCellSizeDisplay) {
+                currentCellSizeDisplay.textContent = size;
+            }
+        };
+        
+        // Show the pinch indicator with animation
+        const showPinchIndicator = () => {
+            if (!pinchIndicator) return;
+            pinchIndicator.classList.add('active');
+            // Auto hide after 1.5 seconds
+            clearTimeout(_pinchIndicatorTimeout);
+            _pinchIndicatorTimeout = setTimeout(() => {
+                pinchIndicator.classList.remove('active');
+            }, 1500);
+        };
+        
+        // Calculate distance between two touch points
+        const getDistance = (touch1, touch2) => {
+            const dx = touch1.clientX - touch2.clientX;
+            const dy = touch1.clientY - touch2.clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        };
+        
+        // Handle touchstart for pinch detection
+        svgElement.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                // Prevent default to avoid browser zooming
+                e.preventDefault();
+                
+                // Initialize pinch state
+                _isPinching = true;
+                _pinchDistance = getDistance(e.touches[0], e.touches[1]);
+                
+                // Show initial indicator
+                updateCellSizeDisplay(_proposedCellSize || cellSizeInput.value);
+                showPinchIndicator();
+            }
+        });
+        
+        // Handle touchmove for pinch zoom
+        svgElement.addEventListener('touchmove', (e) => {
+            if (!_isPinching || e.touches.length !== 2) return;
+            
+            // Prevent default to avoid browser zooming
+            e.preventDefault();
+            
+            // Calculate new distance
+            const newDistance = getDistance(e.touches[0], e.touches[1]);
+            
+            // Calculate scale factor
+            const scaleFactor = newDistance / _pinchDistance;
+            
+            // Only apply changes if scale is significant
+            if (Math.abs(scaleFactor - 1) > 0.05) {
+                // Get current cell size
+                const currentSize = _proposedCellSize || parseInt(cellSizeInput.value, 10);
+                
+                // Calculate new size based on scale
+                let newSize;
+                if (scaleFactor > 1) {
+                    // Zooming in
+                    newSize = Math.min(50, currentSize + 1);
+                } else {
+                    // Zooming out
+                    newSize = Math.max(5, currentSize - 1);
+                }
+                
+                // Only update if size changed
+                if (newSize !== currentSize) {
+                    // Update visual indicator immediately
+                    const width = _proposedWidth || parseInt(document.getElementById('width').value, 10);
+                    const height = _proposedHeight || parseInt(document.getElementById('height').value, 10);
+                    updateResizeOverlay(svgElement, width, height, newSize);
+                    
+                    // Update indicator
+                    updateCellSizeDisplay(newSize);
+                    showPinchIndicator();
+                    
+                    // Reset pinch distance to new value
+                    _pinchDistance = newDistance;
+                    
+                    // Schedule the actual regeneration
+                    debouncedPinchChange();
+                }
+            }
+        });
+        
+        // Handle touchend/cancel to end pinch
+        const endPinch = () => {
+            if (_isPinching) {
+                _isPinching = false;
+                
+                // Apply the proposed dimensions immediately on touch end
+                applyProposedDimensions();
+                
+                // Hide indicator after a short delay
+                setTimeout(() => {
+                    if (pinchIndicator) {
+                        pinchIndicator.classList.remove('active');
+                    }
+                }, 1000);
+            }
+        };
+        
+        svgElement.addEventListener('touchend', endPinch);
+        svgElement.addEventListener('touchcancel', endPinch);
     }
     
     // Create resize handle for better mobile UX
@@ -682,6 +806,9 @@ const MazeUI = (function() {
                 console.error('Required DOM elements not found');
                 return;
             }
+            
+            // Setup pinch zoom for the SVG element
+            setupPinchZoom(svgElement);
             
             // Setup hard mode toggle
             if (hardModeToggle) {

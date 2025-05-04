@@ -740,10 +740,6 @@ class PathManager {
         this.isDrawing = false;
         this.lastCell = null;
         
-        // Add pinch zoom state tracking
-        this.isPinching = false;
-        this.pinchDistance = 0;
-        
         // Clear debug when starting new interactions
         this.clearDebug();
         this.debug('Path interaction initialized', 'info');
@@ -869,9 +865,6 @@ class PathManager {
         this.svgElement.addEventListener('touchend', () => handlePointerUp('touchend'));
         this.svgElement.addEventListener('touchcancel', () => handlePointerUp('touchcancel'));
         
-        // Add multi-touch pinch/zoom for cell resize
-        this.setupPinchZoom();
-        
         // Add reset path button event listener
         if (this.resetPathBtn) {
             this.resetPathBtn.addEventListener('click', () => {
@@ -880,129 +873,6 @@ class PathManager {
                 this.resetActivityUI();
             });
         }
-    }
-    
-    // Setup pinch-zoom functionality for cell resizing
-    setupPinchZoom() {
-        const cellSizeInput = document.getElementById('cellSize');
-        const pinchIndicator = document.getElementById('pinch-zoom-indicator');
-        const currentCellSizeDisplay = document.getElementById('current-cell-size');
-        
-        // Create a proper debounced function for pinch events
-        const debouncedPinchChange = this.debounce(() => {
-            applyProposedDimensions();
-        }, 500);
-        
-        // Update the cell size display
-        const updateCellSizeDisplay = (size) => {
-            if (currentCellSizeDisplay) {
-                currentCellSizeDisplay.textContent = size;
-            }
-        };
-        
-        // Show the pinch indicator with animation
-        const showPinchIndicator = () => {
-            if (!pinchIndicator) return;
-            pinchIndicator.classList.add('active');
-            // Auto hide after 1.5 seconds
-            clearTimeout(this.pinchIndicatorTimeout);
-            this.pinchIndicatorTimeout = setTimeout(() => {
-                pinchIndicator.classList.remove('active');
-            }, 1500);
-        };
-        
-        // Calculate distance between two touch points
-        const getDistance = (touch1, touch2) => {
-            const dx = touch1.clientX - touch2.clientX;
-            const dy = touch1.clientY - touch2.clientY;
-            return Math.sqrt(dx * dx + dy * dy);
-        };
-        
-        // Handle touchstart for pinch detection
-        this.svgElement.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                // Prevent default to avoid browser zooming
-                e.preventDefault();
-                
-                // Initialize pinch state
-                this.isPinching = true;
-                this.pinchDistance = getDistance(e.touches[0], e.touches[1]);
-                this.debug('Pinch gesture started', 'event');
-                
-                // Show initial indicator
-                updateCellSizeDisplay(_proposedCellSize || cellSizeInput.value);
-                showPinchIndicator();
-            }
-        });
-        
-        // Handle touchmove for pinch zoom
-        this.svgElement.addEventListener('touchmove', (e) => {
-            if (!this.isPinching || e.touches.length !== 2) return;
-            
-            // Prevent default to avoid browser zooming
-            e.preventDefault();
-            
-            // Calculate new distance
-            const newDistance = getDistance(e.touches[0], e.touches[1]);
-            
-            // Calculate scale factor
-            const scaleFactor = newDistance / this.pinchDistance;
-            
-            // Only apply changes if scale is significant
-            if (Math.abs(scaleFactor - 1) > 0.05) {
-                // Get current cell size
-                const currentSize = _proposedCellSize || parseInt(cellSizeInput.value, 10);
-                
-                // Calculate new size based on scale
-                let newSize;
-                if (scaleFactor > 1) {
-                    // Zooming in
-                    newSize = Math.min(50, currentSize + 1);
-                } else {
-                    // Zooming out
-                    newSize = Math.max(5, currentSize - 1);
-                }
-                
-                // Only update if size changed
-                if (newSize !== currentSize) {
-                    // Update visual indicator immediately
-                    const width = _proposedWidth || parseInt(document.getElementById('width').value, 10);
-                    const height = _proposedHeight || parseInt(document.getElementById('height').value, 10);
-                    updateResizeOverlay(this.svgElement, width, height, newSize);
-                    
-                    // Update indicator
-                    updateCellSizeDisplay(newSize);
-                    showPinchIndicator();
-                    
-                    // Reset pinch distance to new value
-                    this.pinchDistance = newDistance;
-                    
-                    // Schedule the actual regeneration
-                    debouncedPinchChange();
-                }
-            }
-        });
-        
-        // Handle touchend/cancel to end pinch
-        const endPinch = () => {
-            if (this.isPinching) {
-                this.isPinching = false;
-                this.debug('Pinch gesture ended', 'event');
-                
-                // Apply the proposed dimensions immediately on touch end
-                applyProposedDimensions();
-                
-                // Hide indicator after a short delay
-                setTimeout(() => {
-                    if (pinchIndicator) {
-                        pinchIndicator.classList.remove('active');
-                    }
-                }, 1000);
-            }
-        };
-        
-        this.svgElement.addEventListener('touchend', endPinch);
-        this.svgElement.addEventListener('touchcancel', endPinch);
     }
     
     // Reset the activity UI elements
