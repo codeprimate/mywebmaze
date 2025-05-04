@@ -242,7 +242,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-sm);
+  gap: 0;
 }
 
 .seed-input input {
@@ -283,6 +283,17 @@ button:focus-visible {
 
 .seed-input input[type=number] {
   -moz-appearance: textfield;
+}
+
+/* Seed label styling */
+.seed-label {
+  font-family: 'Nanum Pen Script', sans-serif;
+  font-size: 2.5em;
+  color: var(--color-text);
+  display: inline-block;
+  padding: var(--spacing-xs);
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* Instructions section */
