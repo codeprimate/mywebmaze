@@ -11,6 +11,8 @@
   --color-focus: #4285F4;
   --color-star-filled: #FFD700;
   --color-star-empty: #ccc;
+  --color-paper: #f5f5f0;
+  --color-lines: rgba(0, 120, 255, 0.1);
   
   --spacing-xs: 5px;
   --spacing-sm: 8px;
@@ -25,6 +27,8 @@
   --transition-default: 0.2s;
   --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   --focus-outline: 2px solid var(--color-focus);
+  
+  --line-height: 24px;
 }
 
 /* Font definition for Nanum Pen Script */
@@ -44,6 +48,10 @@ body {
   line-height: 1.6;
   color: var(--color-text);
   font-size: 1.4em;
+  background-color: var(--color-paper);
+  background-image: 
+    linear-gradient(var(--color-lines) 1px, transparent 1px);
+  background-size: 100% var(--line-height);
 }
 
 .content-wrapper {
