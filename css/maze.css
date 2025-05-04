@@ -29,6 +29,10 @@
   --focus-outline: 2px solid var(--color-focus);
   
   --line-height: 24px;
+  
+  /* New responsive variables */
+  --content-max-width: 800px;
+  --mobile-padding: var(--spacing-sm);
 }
 
 /* Font definition for Nanum Pen Script */
@@ -41,6 +45,11 @@
 }
 
 /* Base styles */
+html, body {
+  min-width: 450px; /* Establish minimum width */
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+
 body {
   font-family: var(--font-primary);
   margin: 0;
@@ -52,11 +61,19 @@ body {
   background-image: 
     linear-gradient(var(--color-lines) 1px, transparent 1px);
   background-size: 100% var(--line-height);
+  box-sizing: border-box; /* Include padding in width calculation */
+}
+
+/* Apply border-box to all elements */
+*, *:before, *:after {
+  box-sizing: inherit;
 }
 
 .content-wrapper {
-  max-width: 800px;
+  max-width: var(--content-max-width);
   margin: 0 auto;
+  width: 100%;
+  padding: 0 var(--spacing-md);
 }
 
 h1, h2 {
@@ -209,12 +226,14 @@ button:focus-visible {
   display: flex;
   justify-content: center;
   width: 100%;
-  overflow: auto;
+  overflow: hidden; /* Changed from auto to hidden */
 }
 
 #maze {
   max-width: 100%;
   max-height: 100%;
+  width: auto !important; /* Enforce flexible width */
+  height: auto !important; /* Enforce flexible height */
 }
 
 /* Info sections */
@@ -243,6 +262,7 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
 }
 
 .seed-input input {
@@ -303,6 +323,7 @@ button:focus-visible {
   background-color: var(--color-bg-light);
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
+  width: 100%;
 }
 
 .instructions h2 {
@@ -458,11 +479,12 @@ input:focus + .slider {
   font-size: 0.9em;
   color: var(--color-text-secondary);
   width: 100%;
-  max-width: 800px;
+  max-width: var(--content-max-width);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-lg);
+  flex-wrap: wrap; /* Allow footer to wrap */
 }
 
 .github-link {
@@ -667,13 +689,31 @@ input:focus + .slider {
   outline-offset: 2px;
 }
 
-/* Mobile improvements */
+/* Improved Mobile responsive styles */
 @media (max-width: 768px) {
   body {
-    padding: var(--spacing-sm);
+    padding: var(--mobile-padding);
+    font-size: 1.2em;
+  }
+  
+  .content-wrapper {
+    padding: 0 var(--spacing-xs);
+  }
+  
+  .controls {
+    gap: var(--spacing-md);
+  }
+  
+  button {
+    min-width: 80px;
+    font-size: 0.9em;
   }
   
   .seed-input input {
+    font-size: 2em;
+  }
+  
+  .seed-label {
     font-size: 2em;
   }
   
@@ -687,6 +727,7 @@ input:focus + .slider {
   
   .instructions ul {
     font-size: 1em;
+    padding-left: var(--spacing-lg);
   }
   
   /* Make the resize handle more prominent for touch */
@@ -696,6 +737,82 @@ input:focus + .slider {
   
   .star {
     font-size: 1.3em;
+  }
+  
+  /* Ensure buttons are properly sized and spaced */
+  #downloadBtn, #downloadPngBtn, #downloadFullSheetBtn {
+    padding: var(--spacing-xs) var(--spacing-md);
+  }
+  
+  /* Smaller font for download buttons on mobile */
+  #downloadBtn span, #downloadPngBtn span, #downloadFullSheetBtn span {
+    font-size: 0.9em;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 576px) {
+  body {
+    font-size: 1em;
+  }
+  
+  .seed-input {
+    justify-content: center;
+  }
+  
+  .seed-label {
+    font-size: 1.7em;
+    text-align: center;
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  .seed-input input {
+    font-size: 1.7em;
+  }
+  
+  .seed-input button {
+    min-width: 50px;
+    min-height: 50px;
+  }
+  
+  .seed-input .reload-icon {
+    width: 25px;
+    height: 25px;
+  }
+  
+  /* Further reduce sizes for very small screens */
+  .instructions ul {
+    padding-left: var(--spacing-lg);
+  }
+  
+  .instructions li {
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  .instructions h2 {
+    font-size: 1.5em;
+  }
+  
+  /* Adjust download buttons */
+  #downloadBtn, #downloadPngBtn, #downloadFullSheetBtn {
+    min-width: auto;
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  /* Hide "Multiple Mazes" text on very small screens */
+  #downloadFullSheetBtn span {
+    display: none;
+  }
+  
+  #downloadFullSheetBtn::after {
+    content: "PDF";
+    margin-left: var(--spacing-xs);
+  }
+  
+  /* Stack footer elements */
+  .footer {
+    flex-direction: column;
+    gap: var(--spacing-sm);
   }
 }
 

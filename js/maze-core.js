@@ -86,7 +86,7 @@ const MazeApp = (function() {
             const background = this.createElement('rect', {
                 width: totalWidth,
                 height: totalHeight,
-                fill: 'white'
+                fill: 'rgba(255, 255, 255, 0)'
             });
             this.svgElement.appendChild(background);
 
@@ -382,6 +382,7 @@ const MazeApp = (function() {
             const existingBackground = svgClone.querySelector('rect');
             if (existingBackground) {
                 existingBackground.setAttribute('height', extendedHeight);
+                existingBackground.setAttribute('fill', 'white');
             } else {
                 // Create background if it doesn't exist
                 const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');

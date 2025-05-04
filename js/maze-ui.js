@@ -609,6 +609,11 @@ const MazeUI = (function() {
             img.onload = function() {
                 canvas.width = img.width;
                 canvas.height = img.height;
+                
+                // Ensure white background
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
                 ctx.drawImage(img, 0, 0);
                 URL.revokeObjectURL(url);
                 
