@@ -1121,6 +1121,82 @@ const MazeUI = (function() {
         }
     };
     
+    // Calculate optimal maze dimensions based on viewport size
+    function calculateOptimalDimensions() {
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Measure header height and content area
+        const header = document.querySelector('header');
+        const headerHeight = header ? header.offsetHeight : 0;
+        
+        // Calculate available space (we need to account for padding, controls, etc.)
+        // For simplicity, estimate that 85% of viewport width is available for the maze
+        // and subtract header height + estimated space for controls (80px) from height
+        const availableWidth = viewportWidth * 0.85;
+        const availableHeight = viewportHeight - headerHeight - 80;
+        
+        // Start with preferred cell size
+        let cellSize = 30;
+        
+        // Adjust cell size based on viewport width
+        if (viewportWidth < 480) {
+            // For very small screens (mobile phones)
+            cellSize = Math.max(15, Math.min(cellSize, availableWidth / 12));
+        } else if (viewportWidth < 768) {
+            // For small screens (tablets)
+            cellSize = Math.max(12, Math.min(cellSize, availableWidth / 15));
+        } else {
+            // For larger screens
+            cellSize = Math.max(10, Math.min(cellSize, availableWidth / 20));
+        }
+        
+        // Round cell size to nearest whole pixel
+        cellSize = Math.floor(cellSize);
+        
+        // Calculate maze dimensions based on cell size
+        // Account for 1 cell of padding on each side (2 cells total)
+        const padding = getPadding();
+        const widthInCells = Math.max(10, Math.floor((availableWidth - (padding * 2)) / cellSize));
+        const heightInCells = Math.max(10, Math.floor((availableHeight - (padding * 2)) / cellSize));
+        
+        // Limit dimensions to reasonable maximums
+        const maxWidth = 50;
+        const maxHeight = 50;
+        const width = Math.min(widthInCells, maxWidth);
+        const height = Math.min(heightInCells - 1, maxHeight);
+        
+        // Target ~400 cells total area
+        const totalCells = width * height;
+        const targetCells = 400;
+        const deviation = 0.2; // Allow 20% deviation from target
+        const minCells = targetCells * (1 - deviation);
+        const maxCells = targetCells * (1 + deviation);
+        
+        // If we're outside the acceptable range on large screens, adjust dimensions
+        if ((totalCells < minCells || totalCells > maxCells) && viewportWidth >= 1024) {
+            // Calculate aspect ratio
+            const aspect = width / height;
+            
+            // Calculate new dimensions maintaining aspect ratio
+            const newWidth = Math.max(10, Math.floor(Math.sqrt(targetCells * aspect)));
+            const newHeight = Math.max(10, Math.floor(Math.sqrt(targetCells / aspect)));
+            
+            return {
+                width: newWidth,
+                height: newHeight,
+                cellSize: cellSize
+            };
+        }
+        
+        return {
+            width: width,
+            height: height,
+            cellSize: cellSize
+        };
+    }
+    
     function init() {
         if (_initialized) return;
         
@@ -1150,18 +1226,27 @@ const MazeUI = (function() {
                 MazeController.resizeInput();
             }
             
-            // Initialize proposed dimensions from inputs
+            // Calculate optimal dimensions for the current viewport size
+            const { width, height, cellSize } = calculateOptimalDimensions();
+            
+            // Get input elements
             const widthInput = document.getElementById('width');
             const heightInput = document.getElementById('height');
             const cellSizeInput = document.getElementById('cellSize');
             
             if (widthInput && heightInput && cellSizeInput) {
-                _proposedWidth = parseInt(widthInput.value, 10);
-                _proposedHeight = parseInt(heightInput.value, 10);
-                _proposedCellSize = parseInt(cellSizeInput.value, 10);
+                // Update input values with optimal dimensions
+                widthInput.value = width;
+                heightInput.value = height;
+                cellSizeInput.value = cellSize;
+                
+                // Update proposed dimensions
+                _proposedWidth = width;
+                _proposedHeight = height;
+                _proposedCellSize = cellSize;
             }
             
-            // Generate initial maze
+            // Generate initial maze with optimal dimensions
             MazeController.generateMaze();
             
             _initialized = true;
