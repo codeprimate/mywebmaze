@@ -397,6 +397,21 @@ class PathManager {
             return false;
         }
         
+        // Safety limit for very large mazes - prevent excessive calculations for extremely long paths
+        const MAX_LINEAR_PATH_LENGTH = 50; // Maximum cells to check in a single linear path
+        let cellDistance;
+        
+        if (isHorizontal) {
+            cellDistance = Math.abs(startCell.col - endCell.col);
+        } else { // isVertical
+            cellDistance = Math.abs(startCell.row - endCell.row);
+        }
+        
+        if (cellDistance > MAX_LINEAR_PATH_LENGTH) {
+            this.debug(`Linear path too long (${cellDistance} cells), exceeds safety limit of ${MAX_LINEAR_PATH_LENGTH}`, 'warning');
+            return false;
+        }
+        
         this.debug(`Checking linear path between (${startCell.row},${startCell.col}) and (${endCell.row},${endCell.col})`, 'info');
         
         // Check all cells between start and end for walls
@@ -405,11 +420,14 @@ class PathManager {
             const start = Math.min(startCell.col, endCell.col);
             const end = Math.max(startCell.col, endCell.col);
             
+            // For each cell pair, check for walls - return early if wall found
             for (let col = start; col < end; col++) {
                 const currentCell = this.maze.grid[row][col];
                 const nextCell = this.maze.grid[row][col + 1];
+                
+                // Early termination - stop checking as soon as we find a wall
                 if (this.hasWallBetween(currentCell, nextCell)) {
-                    this.debug(`Wall found between (${row},${col}) and (${row},${col + 1})`, 'error');
+                    this.debug(`Wall found between (${row},${col}) and (${row},${col + 1}) - early termination`, 'error');
                     return false;
                 }
             }
@@ -418,11 +436,14 @@ class PathManager {
             const start = Math.min(startCell.row, endCell.row);
             const end = Math.max(startCell.row, endCell.row);
             
+            // For each cell pair, check for walls - return early if wall found
             for (let row = start; row < end; row++) {
                 const currentCell = this.maze.grid[row][col];
                 const nextCell = this.maze.grid[row + 1][col];
+                
+                // Early termination - stop checking as soon as we find a wall
                 if (this.hasWallBetween(currentCell, nextCell)) {
-                    this.debug(`Wall found between (${row},${col}) and (${row + 1},${col})`, 'error');
+                    this.debug(`Wall found between (${row},${col}) and (${row + 1},${col}) - early termination`, 'error');
                     return false;
                 }
             }
@@ -1381,10 +1402,28 @@ class PathManager {
             Math.pow(newCell.col - oldCell.col, 2)
         );
         
-        // For linear paths (distance > 1), use a faster speed per cell
-        const baseSpeed = this.animationConfig.duration;
-        const speedAdjustment = distance > 1 ? 0.6 : 1; // Move 40% faster for linear paths
-        const duration = Math.min(500, baseSpeed * Math.sqrt(distance) * speedAdjustment);
+        // Improved animation duration calculation for more natural feeling
+        // For adjacent cells, use the base speed
+        // For linear paths, use logarithmic scaling for more consistent feel at longer distances
+        const baseSpeed = this.animationConfig.duration; // Base duration for adjacent cells
+        let duration;
+        
+        if (distance <= 1) {
+            // Use base duration for adjacent cells
+            duration = baseSpeed;
+        } else {
+            // For linear paths, use a logarithmic scale that feels more natural
+            // This creates a speed that increases with distance but tapers off
+            // Math.log(distance) gives a natural logarithmic curve
+            // We add 1 inside the log to handle distance values close to 1
+            const logFactor = Math.log(distance + 1);
+            duration = baseSpeed + 70 * logFactor; // 70ms per log unit
+            
+            // Set a minimum and maximum to ensure animations are neither too fast nor too slow
+            duration = Math.min(750, Math.max(baseSpeed, duration));
+            
+            this.debug(`Linear path animation duration: ${Math.round(duration)}ms for distance ${distance.toFixed(2)}`, 'info');
+        }
         
         // Animation function
         const animate = (currentTime) => {
