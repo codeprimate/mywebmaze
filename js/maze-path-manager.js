@@ -376,6 +376,62 @@ class PathManager {
         }
     }
     
+    // Check if there is a clear linear path between two cells
+    hasLinearPathBetween(startCell, endCell) {
+        // If same cell, return true
+        if (startCell.row === endCell.row && startCell.col === endCell.col) {
+            return true;
+        }
+        
+        // If adjacent, use existing wall check
+        if (this.areCellsAdjacent(startCell, endCell)) {
+            return !this.hasWallBetween(startCell, endCell);
+        }
+        
+        // Determine if it's a valid linear path (same row or column)
+        const isHorizontal = startCell.row === endCell.row;
+        const isVertical = startCell.col === endCell.col;
+        
+        if (!isHorizontal && !isVertical) {
+            this.debug(`Not a linear path between (${startCell.row},${startCell.col}) and (${endCell.row},${endCell.col})`, 'warning');
+            return false;
+        }
+        
+        this.debug(`Checking linear path between (${startCell.row},${startCell.col}) and (${endCell.row},${endCell.col})`, 'info');
+        
+        // Check all cells between start and end for walls
+        if (isHorizontal) {
+            const row = startCell.row;
+            const start = Math.min(startCell.col, endCell.col);
+            const end = Math.max(startCell.col, endCell.col);
+            
+            for (let col = start; col < end; col++) {
+                const currentCell = this.maze.grid[row][col];
+                const nextCell = this.maze.grid[row][col + 1];
+                if (this.hasWallBetween(currentCell, nextCell)) {
+                    this.debug(`Wall found between (${row},${col}) and (${row},${col + 1})`, 'error');
+                    return false;
+                }
+            }
+        } else { // isVertical
+            const col = startCell.col;
+            const start = Math.min(startCell.row, endCell.row);
+            const end = Math.max(startCell.row, endCell.row);
+            
+            for (let row = start; row < end; row++) {
+                const currentCell = this.maze.grid[row][col];
+                const nextCell = this.maze.grid[row + 1][col];
+                if (this.hasWallBetween(currentCell, nextCell)) {
+                    this.debug(`Wall found between (${row},${col}) and (${row + 1},${col})`, 'error');
+                    return false;
+                }
+            }
+        }
+        
+        this.debug(`Clear path found between (${startCell.row},${startCell.col}) and (${endCell.row},${endCell.col})`, 'success');
+        return true;
+    }
+    
     // Validate if a cell can be added to the path
     canAddCellToPath(cell) {
         this.debug(`Validating add cell (${cell.row},${cell.col}) to path`, 'info');
@@ -400,7 +456,11 @@ class PathManager {
             this.debug(`Moving from entrance. Adjacent to entrance? ${isAdjacent ? 'YES' : 'NO'}`, isAdjacent ? 'success' : 'error');
             
             if (!isAdjacent) {
-                return false;
+                // For first move, we'll also allow a linear path from entrance
+                const hasLinearPath = this.hasLinearPathBetween(entranceCell, cell);
+                this.debug(`Linear path from entrance? ${hasLinearPath ? 'YES' : 'NO'}`, hasLinearPath ? 'success' : 'error');
+                
+                return hasLinearPath;
             }
             
             // Then check for walls
@@ -426,19 +486,23 @@ class PathManager {
             }
         }
         
-        // Cell must be adjacent to the current path end
+        // Cell must be adjacent to the current path end OR have a linear path with no walls
         const isAdjacent = this.areCellsAdjacent(currentEnd, cell);
         this.debug(`Are cells adjacent? ${isAdjacent ? 'YES' : 'NO'}`, isAdjacent ? 'success' : 'error');
         
-        if (!isAdjacent) {
-            return false;
+        if (isAdjacent) {
+            // There must be no wall between the current end and the new cell
+            const wallBetween = this.hasWallBetween(currentEnd, cell);
+            this.debug(`Is there a wall between adjacent cells? ${wallBetween ? 'YES (blocked)' : 'NO (open path)'}`, wallBetween ? 'error' : 'success');
+            
+            return !wallBetween;
+        } else {
+            // Check if there's a clear linear path between the cells
+            const hasLinearPath = this.hasLinearPathBetween(currentEnd, cell);
+            this.debug(`Is there a linear path available? ${hasLinearPath ? 'YES' : 'NO'}`, hasLinearPath ? 'success' : 'error');
+            
+            return hasLinearPath;
         }
-        
-        // There must be no wall between the current end and the new cell
-        const wallBetween = this.hasWallBetween(currentEnd, cell);
-        this.debug(`Is there a wall between cells? ${wallBetween ? 'YES (blocked)' : 'NO (open path)'}`, wallBetween ? 'error' : 'success');
-        
-        return !wallBetween;
     }
     
     // Add a cell to the path
@@ -489,6 +553,71 @@ class PathManager {
         }
         
         return true;
+    }
+    
+    // Add all cells in a linear path between two points
+    addLinearPathCells(startCell, endCell) {
+        // If no linear path exists, return false
+        if (!this.hasLinearPathBetween(startCell, endCell)) {
+            this.debug(`No linear path exists between (${startCell.row},${startCell.col}) and (${endCell.row},${endCell.col})`, 'error');
+            return false;
+        }
+        
+        this.debug(`Adding linear path from (${startCell.row},${startCell.col}) to (${endCell.row},${endCell.col})`, 'info');
+        
+        // Determine direction and cells to add
+        const isHorizontal = startCell.row === endCell.row;
+        const isVertical = startCell.col === endCell.col;
+        const cells = [];
+        
+        if (isHorizontal) {
+            const row = startCell.row;
+            // Determine direction (left to right or right to left)
+            const step = startCell.col < endCell.col ? 1 : -1;
+            
+            // Add cells in sequence
+            for (let col = startCell.col + step; step > 0 ? col <= endCell.col : col >= endCell.col; col += step) {
+                cells.push(this.maze.grid[row][col]);
+            }
+            
+            this.debug(`Horizontal linear path: row ${row}, cols ${startCell.col} to ${endCell.col}`, 'info');
+        } else if (isVertical) {
+            const col = startCell.col;
+            // Determine direction (top to bottom or bottom to top)
+            const step = startCell.row < endCell.row ? 1 : -1;
+            
+            // Add cells in sequence
+            for (let row = startCell.row + step; step > 0 ? row <= endCell.row : row >= endCell.row; row += step) {
+                cells.push(this.maze.grid[row][col]);
+            }
+            
+            this.debug(`Vertical linear path: col ${col}, rows ${startCell.row} to ${endCell.row}`, 'info');
+        }
+        
+        this.debug(`Found ${cells.length} cells to add in linear path`, 'info');
+        
+        // Add each cell to the path in sequence
+        let success = true;
+        for (const cell of cells) {
+            if (!this.addCellToPath(cell)) {
+                success = false;
+                this.debug(`Failed to add cell (${cell.row},${cell.col}) to linear path`, 'error');
+                break;
+            }
+        }
+        
+        if (success) {
+            this.debug(`Successfully added ${cells.length} cells in linear path`, 'success');
+            
+            // Calculate and log distance for linear path metrics
+            const distance = Math.sqrt(
+                Math.pow(endCell.row - startCell.row, 2) + 
+                Math.pow(endCell.col - startCell.col, 2)
+            );
+            this.debug(`Linear path distance: ${distance.toFixed(2)} cells`, 'info');
+        }
+        
+        return success;
     }
     
     // Handle maze completion
@@ -795,16 +924,45 @@ class PathManager {
                     this.isDrawing = true;
                     this.lastCell = entranceCell;
                 } else {
-                    // Clicked elsewhere, don't start the path
-                    this.debug(`Click ignored - must start path from entrance cell`, 'warning');
+                    // Check if user clicked on a cell that has a valid linear path from entrance
+                    if (this.hasLinearPathBetween(entranceCell, cell)) {
+                        this.debug(`Starting new path from entrance with linear jump to (${cell.row},${cell.col})`, 'success');
+                        // First add the entrance cell
+                        this.addCellToPath(entranceCell);
+                        // Then add all cells in the linear path
+                        this.addLinearPathCells(entranceCell, cell);
+                        this.isDrawing = true;
+                        this.lastCell = cell;
+                    } else {
+                        // Clicked elsewhere, don't start the path
+                        this.debug(`Click ignored - must start path from entrance cell or have linear path from entrance`, 'warning');
+                    }
                 }
                 
                 return;
             }
             
-            // For an existing path, always allow drawing from the current path end
-            // Set lastCell to the current path end so drawing continues from there
+            // For an existing path, handle click on non-end cell
             const endCell = this.maze.grid[this.maze.currentPathEnd.row][this.maze.currentPathEnd.col];
+            
+            // If the clicked cell is the current end, just start drawing from there
+            if (cell.row === endCell.row && cell.col === endCell.col) {
+                this.isDrawing = true;
+                this.lastCell = endCell;
+                this.debug(`Ready to draw from current path end (${endCell.row},${endCell.col})`, 'success');
+                return;
+            }
+            
+            // If the clicked cell has a valid linear path from current end, add all cells in that path
+            if (this.hasLinearPathBetween(endCell, cell)) {
+                this.debug(`Adding linear path from (${endCell.row},${endCell.col}) to (${cell.row},${cell.col})`, 'success');
+                this.addLinearPathCells(endCell, cell);
+                this.isDrawing = true;
+                this.lastCell = cell;
+                return;
+            }
+            
+            // Otherwise, just set up for regular drawing from current end
             this.isDrawing = true;
             this.lastCell = endCell;
             this.debug(`Ready to draw from current path end (${endCell.row},${endCell.col})`, 'success');
@@ -824,6 +982,17 @@ class PathManager {
             if (!cell || cell === this.lastCell) return;
             
             this.debug(`${e.type} to cell (${cell.row},${cell.col})`, 'event');
+            
+            // If we're dragging through a linear path, handle the entire path
+            const currentEnd = this.maze.grid[this.maze.currentPathEnd.row][this.maze.currentPathEnd.col];
+            if (!this.areCellsAdjacent(currentEnd, cell) && this.hasLinearPathBetween(currentEnd, cell)) {
+                this.debug(`Dragging along linear path to (${cell.row},${cell.col})`, 'success');
+                const result = this.addLinearPathCells(currentEnd, cell);
+                if (result) {
+                    this.lastCell = cell;
+                }
+                return;
+            }
             
             // Try to add the cell to the path - only succeeds if it's a valid move
             const result = this.addCellToPath(cell);
@@ -1205,7 +1374,17 @@ class PathManager {
         
         // Animation variables
         const startTime = performance.now();
-        const duration = this.animationConfig.duration;
+        
+        // Calculate distance between cells to adjust animation duration for linear paths
+        const distance = Math.sqrt(
+            Math.pow(newCell.row - oldCell.row, 2) + 
+            Math.pow(newCell.col - oldCell.col, 2)
+        );
+        
+        // For linear paths (distance > 1), use a faster speed per cell
+        const baseSpeed = this.animationConfig.duration;
+        const speedAdjustment = distance > 1 ? 0.6 : 1; // Move 40% faster for linear paths
+        const duration = Math.min(500, baseSpeed * Math.sqrt(distance) * speedAdjustment);
         
         // Animation function
         const animate = (currentTime) => {
