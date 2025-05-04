@@ -36,7 +36,7 @@ My Web Maze generates perfect mazes with a hand-drawn aesthetic. Users can custo
 
 ## Implementation
 
-The maze is generated using a combination of advanced algorithms:
+The maze is generated using a combination of algorithms:
 
 - **Enhanced Depth-First Search**: The core algorithm uses a modified DFS with directional persistence to create more natural flow patterns.
 - **Strategic Wall Removal**: Selectively removes walls to create loops while maintaining puzzle integrity and difficulty.
@@ -44,7 +44,7 @@ The maze is generated using a combination of advanced algorithms:
 - **Difficulty Scoring**: Analyzes maze complexity using factors including branch points, false paths, solution length, and decision point density.
 
 The maze generation system ensures:
-- Balanced complexity with customizable difficulty levels
+- Balanced complexity
 - Variable dead-end length for more engaging puzzles
 - High-quality mazes that provide appropriate challenge for solvers
 - Proper entrance and exit placement with guaranteed solution path
