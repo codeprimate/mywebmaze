@@ -1266,10 +1266,9 @@ class PathManager {
             hardModeStar.classList.remove('filled', 'special-shine');
             
             // Check if hard mode is active and score is perfect (100)
-            const hardModeToggle = document.getElementById('hardModeToggle');
-            const isHardMode = hardModeToggle && hardModeToggle.checked;
+            const isHardMode = this.hardModeManager && this.hardModeManager.isEnabled();
             
-            if (isHardMode && score >= 90) {
+            if (isHardMode) {
                 // Add with delay after the other stars
                 setTimeout(() => {
                     hardModeStar.classList.add('filled');
@@ -1330,10 +1329,7 @@ class PathManager {
         };
         
         // Check if completed in hard mode
-        const hardModeToggle = document.getElementById('hardModeToggle');
-        if (hardModeToggle && hardModeToggle.checked) {
-            activity.hardModeCompleted = true;
-        }
+        activity.hardModeCompleted = this.hardModeManager && this.hardModeManager.isEnabled();
         
         this.debug(`Score calculated: ${totalScore} (Efficiency: ${efficiencyScore}, Time: ${timeScore}, Exploration: ${explorationScore})`, 'event');
         
