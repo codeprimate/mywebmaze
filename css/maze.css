@@ -565,6 +565,7 @@ input:focus + .slider {
   margin-right: 0;
   text-align: left;
   flex: 1;
+  font-size: 1em;
 }
 
 .solving-view #maze-timer {
@@ -610,7 +611,7 @@ input:focus + .slider {
 /* Media query adjustments */
 @media (max-width: 768px) {
   .solving-view {
-    font-size: 0.9em;
+    font-size: 1em;
   }
   
   #maze-activity-tracker {
@@ -621,7 +622,7 @@ input:focus + .slider {
 
 @media (max-width: 576px) {
   .solving-view {
-    font-size: 0.9em;
+    font-size: 1em;
   }
   
   #maze-activity-tracker {

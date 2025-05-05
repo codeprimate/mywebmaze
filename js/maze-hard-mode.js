@@ -393,20 +393,11 @@ class HardModeManager {
         // Add the Gaussian blur filter
         const blur = this._createSvgElement('feGaussianBlur');
         blur.setAttribute('in', 'SourceGraphic');
-        const blurAmount = Math.max(5, Math.min(20, cellSize * 0.4));
+        const blurAmount = Math.max(5, Math.min(15, cellSize * 0.3));
         blur.setAttribute('stdDeviation', blurAmount);
         blur.setAttribute('result', 'blur');
         
-        // Add component transfer for solid black edges
-        const feComponentTransfer = this._createSvgElement('feComponentTransfer');
-        feComponentTransfer.setAttribute('in', 'blur');
-        const feFunc = this._createSvgElement('feFuncA');
-        feFunc.setAttribute('type', 'table');
-        feFunc.setAttribute('tableValues', '0 0.4 0.8 0.95 1');
-        feComponentTransfer.appendChild(feFunc);
-        
         filter.appendChild(blur);
-        filter.appendChild(feComponentTransfer);
         
         return filter;
     }
@@ -453,10 +444,11 @@ class HardModeManager {
         gradient.setAttribute('fy', '50%');
         
         const stops = [
-            { offset: '0%', color: 'black', opacity: '1' },
-            { offset: '80%', color: 'black', opacity: '0.9' },
-            { offset: '90%', color: 'black', opacity: '0.6' },
-            { offset: '100%', color: 'black', opacity: '0' }
+            { offset: '0%', color: 'black', opacity: '1' },  // Center is black (invisible in overlay)
+            { offset: '60%', color: 'black', opacity: '1' }, // Still fully invisible
+            { offset: '80%', color: 'black', opacity: '0.6' }, // Starting to fade
+            { offset: '90%', color: 'white', opacity: '0.7' }, // More visible
+            { offset: '100%', color: 'white', opacity: '1' }  // Edge is white (fully visible overlay)
         ];
         
         stops.forEach(({ offset, color, opacity }) => {
