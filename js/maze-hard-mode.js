@@ -2,7 +2,7 @@
 class HardModeManager {
     constructor(svgElement) {
         // Core state
-        this.enabled = false;
+        this.enabled = true;
         this.overlay = null;
         this.maze = null;
         this.pathManager = null;
@@ -122,6 +122,9 @@ class HardModeManager {
         const savedHardMode = localStorage.getItem('hardModeEnabled');
         if (savedHardMode !== null) {
             this.enabled = savedHardMode === 'true';
+        } else {
+            // Default to enabled when no saved preference exists
+            this.enabled = true;
         }
     }
     
