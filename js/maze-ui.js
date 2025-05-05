@@ -1139,11 +1139,11 @@ const MazeUI = (function() {
         // Calculate available space (we need to account for padding, controls, etc.)
         // For simplicity, estimate that 85% of viewport width is available for the maze
         // and subtract header height + estimated space for controls (80px) from height
-        const availableWidth = viewportWidth * 0.85;
+        const availableWidth = viewportWidth * 0.9 - 10;
         const availableHeight = viewportHeight - headerHeight - 80;
         
         // Start with preferred cell size
-        let cellSize = 30;
+        let cellSize = 40;
         
         // Adjust cell size based on viewport width
         if (viewportWidth < 480) {
@@ -1175,7 +1175,7 @@ const MazeUI = (function() {
         // Target ~400 cells total area
         const totalCells = width * height;
         const targetCells = 400;
-        const deviation = 0.2; // Allow 20% deviation from target
+        const deviation = 0.1; // Allow 20% deviation from target
         const minCells = targetCells * (1 - deviation);
         const maxCells = targetCells * (1 + deviation);
         
