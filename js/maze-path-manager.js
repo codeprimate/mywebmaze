@@ -1301,7 +1301,10 @@ class PathManager {
         // Perfect = user path length is equal to the optimal path
         const userPathLength = this.maze.userPath.length;
         const pathRatio = activity.optimalPathLength / userPathLength;
-        const efficiencyScore = Math.min(40, Math.round(pathRatio * 40));
+        
+        // Apply a more aggressive quadratic penalty for non-optimal paths
+        // This will drop scores more quickly as paths become less efficient
+        const efficiencyScore = Math.min(40, Math.round(pathRatio * pathRatio * 40));
         
         // 2. Time efficiency score (0-30 points)
         // Base expectation: 2 seconds per cell in optimal path for perfect score
