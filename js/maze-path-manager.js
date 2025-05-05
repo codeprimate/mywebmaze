@@ -1048,6 +1048,24 @@ class PathManager {
                 this.resetPath();
                 // Reset the activity UI
                 this.resetActivityUI();
+                
+                // Add tilt animation to the activity tracker
+                const activityTracker = document.getElementById('maze-activity-tracker');
+                if (activityTracker) {
+                    // Remove the animation class first (in case it's already there)
+                    activityTracker.classList.remove('tilt-animation');
+                    
+                    // Force a reflow to restart the animation
+                    void activityTracker.offsetWidth;
+                    
+                    // Add the animation class
+                    activityTracker.classList.add('tilt-animation');
+                    
+                    // Clean up the animation class after it completes
+                    setTimeout(() => {
+                        activityTracker.classList.remove('tilt-animation');
+                    }, 500); // Slightly longer than the animation duration
+                }
             });
         }
     }
