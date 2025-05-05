@@ -545,8 +545,8 @@ input:focus + .slider {
   box-shadow: var(--box-shadow);
   position: relative;
   overflow: hidden;
-  max-width: 33.33%;
-  width: 33.33%;
+  max-width: 60%;
+  width: 60%;
   transition: all 0.3s ease;
 }
 
@@ -591,6 +591,9 @@ input:focus + .slider {
   display: none;
   opacity: 0;
   transition: opacity 0.3s ease;
+  padding: var(--spacing-md);
+  text-align: center;
+  font-size: 1.5em;
 }
 
 /* Show results view when maze is completed */
@@ -601,6 +604,7 @@ input:focus + .slider {
 #maze-activity-tracker.completed .results-view {
   display: block;
   opacity: 1;
+  animation: celebrate 0.5s ease-out;
 }
 
 /* Hide the duplicate timer/status elements used for JS compatibility */
@@ -866,4 +870,73 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
 
 .hard-mode-toggle.active label[for="hardModeToggle"] {
   font-weight: bold;
+}
+
+/* Star Rating Styles */
+.star-rating-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: var(--spacing-md);
+}
+
+.star-rating {
+  display: flex;
+  gap: var(--spacing-xs);
+  justify-content: center;
+}
+
+.star {
+  font-size: 1.5em;
+  color: var(--color-star-empty);
+  cursor: default;
+  transition: transform 0.3s ease, color 0.3s ease;
+  position: relative;
+}
+
+.star::before {
+  content: "★";
+}
+
+.star.filled {
+  color: var(--color-star-filled);
+  transform: scale(1.1);
+}
+
+/* Maze Stats Styles */
+#maze-stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  align-items: center;
+  margin-top: var(--spacing-sm);
+  line-height: 1em;
+}
+
+.maze-stat {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: space-between;
+  width: 100%;
+  max-width: 95%;
+  font-size: 1.1em;
+  margin: 0 auto;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.stat-label {
+  font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#maze-completion-time, 
+#maze-path-length {
+  font-size: 1.6em;
+  font-weight: bold;
+  text-align: right;
+  white-space: nowrap;
+  flex-grow: 1;
+  min-width: 0;
 }

@@ -1218,7 +1218,7 @@ class PathManager {
         }
         
         if (pathLengthElement) {
-            pathLengthElement.textContent = this.maze.userPath.length;
+            pathLengthElement.textContent = `${this.maze.userPath.length} (${this.maze.userActivity.optimalPathLength})`;
         }
         
         // Calculate score and update star rating
@@ -1230,7 +1230,7 @@ class PathManager {
             activityTracker.classList.add('completed');
         }
         
-        this.debug(`Maze completed! Time: ${formattedTime}, Path: ${this.maze.userPath.length}, Score: ${score}`, 'success');
+        this.debug(`Maze completed! Time: ${formattedTime}, Path: ${this.maze.userPath.length} (${this.maze.userActivity.optimalPathLength}), Score: ${score}`, 'success');
     }
     
     // Update star rating based on score
