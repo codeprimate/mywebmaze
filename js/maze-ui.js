@@ -1170,7 +1170,7 @@ const MazeUI = (function() {
         const maxWidth = 50;
         const maxHeight = 50;
         const width = Math.min(widthInCells, maxWidth);
-        const height = Math.min(heightInCells - 1, maxHeight);
+        const height = Math.min(heightInCells - 4, maxHeight);
         
         // Target ~400 cells total area
         const totalCells = width * height;

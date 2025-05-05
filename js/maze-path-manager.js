@@ -1052,319 +1052,271 @@ class PathManager {
         }
     }
     
-    // Reset the activity UI elements
+    // Reset the activity tracker UI to initial state
     resetActivityUI() {
-        // Reset timer display
+        // Get all required DOM elements
+        const activityTracker = document.getElementById('maze-activity-tracker');
         const timerElement = document.getElementById('maze-timer');
-        if (timerElement) {
-            timerElement.textContent = '00:00';
-        }
-        
-        // Reset status message
         const statusElement = document.getElementById('maze-status');
-        if (statusElement) {
-            statusElement.textContent = 'Ready';
-        }
-        
-        // Reset completion time and stats
         const completionTimeElement = document.getElementById('maze-completion-time');
         const pathLengthElement = document.getElementById('maze-path-length');
         
+        // Ensure we have the necessary elements
+        if (!activityTracker || !timerElement || !statusElement) {
+            console.warn('Activity tracker elements not found');
+            return;
+        }
+        
+        // Reset timer display
+        timerElement.textContent = '00:00';
+        
+        // Reset status text
+        statusElement.textContent = 'Ready';
+        
+        // Reset completion stats
         if (completionTimeElement) completionTimeElement.textContent = '--:--';
         if (pathLengthElement) pathLengthElement.textContent = '--';
         
         // Reset star ratings
-        const stars = document.querySelectorAll('.star-rating .star');
+        const stars = document.querySelectorAll('.star');
         stars.forEach(star => {
-            star.classList.remove('filled');
+            star.classList.remove('filled', 'special-shine');
         });
         
-        // Hide entire activity tracker and its sections
-        const activityTracker = document.getElementById('maze-activity-tracker');
-        const timerSection = document.getElementById('maze-timer-section');
-        const statsSection = document.getElementById('maze-stats-section');
+        // Show solving view, hide completion view
+        activityTracker.classList.remove('completed');
         
-        if (activityTracker) {
-            // Instead of just removing the class, fade out
-            activityTracker.style.opacity = '0';
-            activityTracker.style.transform = 'translateY(-10px)';
-            
-            // After animation completes, remove the active class
-            setTimeout(() => {
-                activityTracker.classList.remove('active');
-            }, 300);
-        }
+        // Reset activity data
+        this.maze.userActivity.startTime = null;
+        this.maze.userActivity.completionTime = null;
+        this.maze.userActivity.duration = null;
+        this.maze.userActivity.active = false;
+        this.maze.userActivity.completed = false;
         
-        // Reset timer section properly - remove transitions and prepare it for next activation
-        if (timerSection) {
-            timerSection.classList.remove('active');
-            // Reset any inline styles that might have been added when hiding the timer section
-            timerSection.style.opacity = '';
-            timerSection.style.transform = '';
-        }
-        
-        if (statsSection) {
-            statsSection.classList.remove('active');
-            // Reset any inline styles that might have been added
-            statsSection.style.opacity = '';
-            statsSection.style.transform = '';
-        }
-        
-        // Clear any existing timer interval
+        // Clear timer interval if active
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
         }
+        
+        // Mirror timer value to the hidden element for JS compatibility
+        const timerHiddenElement = document.getElementById('maze-timer-hidden');
+        const statusHiddenElement = document.getElementById('maze-status-hidden');
+        if (timerHiddenElement) timerHiddenElement.textContent = timerElement.textContent;
+        if (statusHiddenElement) statusHiddenElement.textContent = statusElement.textContent;
+        
+        this.debug('Activity UI reset', 'event');
     }
     
-    // Start the solving timer
+    // Start tracking user activity with timer
     startTimer() {
-        const activity = this.maze.userActivity;
+        // Get UI elements
+        const activityTracker = document.getElementById('maze-activity-tracker');
+        const timerElement = document.getElementById('maze-timer');
+        const statusElement = document.getElementById('maze-status');
         
-        // Debug logging to understand when this is called
-        this.debug('Timer start requested', 'event');
-        
-        // Don't start if already active
-        if (activity.active) {
-            this.debug('Timer already active, ignoring start request', 'warning');
+        // Check if elements exist
+        if (!activityTracker || !timerElement || !statusElement) {
+            console.warn('Timer elements not found');
             return;
         }
         
-        // Set start time and active state
-        activity.startTime = Date.now();
-        activity.active = true;
-        this.debug('Timer started successfully', 'success');
-        
-        // Show the activity tracker and timer section
-        const activityTracker = document.getElementById('maze-activity-tracker');
-        const timerSection = document.getElementById('maze-timer-section');
-        
-        if (activityTracker) {
-            // First add active class to make element in the document flow
-            activityTracker.classList.add('active');
+        // Initialize start time if not already set
+        if (!this.maze.userActivity.startTime) {
+            this.maze.userActivity.startTime = new Date();
+            this.maze.userActivity.active = true;
             
-            // Set initial state for animation
-            activityTracker.style.opacity = '0';
-            activityTracker.style.transform = 'translateY(-10px)';
-            
-            // Force a reflow to ensure the initial state is applied
-            void activityTracker.offsetWidth;
-            
-            // Then animate in
-            activityTracker.style.opacity = '1';
-            activityTracker.style.transform = 'translateY(0)';
-        }
-        if (timerSection) {
-            timerSection.classList.add('active');
-        }
-        
-        // Update status
-        const statusElement = document.getElementById('maze-status');
-        if (statusElement) {
+            // Update status
             statusElement.textContent = 'Solving...';
-        }
-        
-        // Set up interval to update timer every second
-        this.timerInterval = setInterval(() => {
+            
+            // Clear any existing interval just in case
+            if (this.timerInterval) {
+                clearInterval(this.timerInterval);
+            }
+            
+            // Set up timer update interval (every second)
+            this.timerInterval = setInterval(() => this.updateTimer(), 1000);
+            
+            // Update immediately
             this.updateTimer();
-        }, 1000);
-        
-        // Initial timer update
-        this.updateTimer();
+            
+            this.debug('Timer started at ' + this.maze.userActivity.startTime.toLocaleTimeString(), 'event');
+        }
     }
     
-    // Update timer display
+    // Update the timer display
     updateTimer() {
-        const activity = this.maze.userActivity;
-        if (!activity.active || !activity.startTime) return;
-        
-        const timerElement = document.getElementById('maze-timer');
-        if (!timerElement) return;
+        if (!this.maze.userActivity.active || !this.maze.userActivity.startTime) return;
         
         // Calculate elapsed time
-        const currentTime = Date.now();
-        const elapsedTime = currentTime - activity.startTime;
+        const currentTime = new Date();
+        const elapsedMs = currentTime - this.maze.userActivity.startTime;
+        const elapsedSeconds = Math.floor(elapsedMs / 1000);
         
         // Format time as MM:SS
-        const minutes = Math.floor(elapsedTime / 60000);
-        const seconds = Math.floor((elapsedTime % 60000) / 1000);
-        
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
         const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        timerElement.textContent = formattedTime;
+        
+        // Update timer display
+        const timerElement = document.getElementById('maze-timer');
+        if (timerElement) {
+            timerElement.textContent = formattedTime;
+            
+            // Mirror to hidden element for JS compatibility
+            const timerHiddenElement = document.getElementById('maze-timer-hidden');
+            if (timerHiddenElement) timerHiddenElement.textContent = formattedTime;
+        }
     }
     
-    // Stop timer and display completion stats
+    // Stop the timer and show completion statistics
     stopTimerAndShowStats() {
-        const activity = this.maze.userActivity;
+        // Get UI elements
+        const activityTracker = document.getElementById('maze-activity-tracker');
+        const completionTimeElement = document.getElementById('maze-completion-time');
+        const pathLengthElement = document.getElementById('maze-path-length');
         
-        // If not active, nothing to do
-        if (!activity.active) return;
-        
-        // Stop timer interval
+        // Stop the timer interval
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
         }
         
-        // Update activity state
-        activity.active = false;
-        activity.completed = true;
+        // Record completion time and duration
+        this.maze.userActivity.completionTime = new Date();
+        this.maze.userActivity.duration = this.maze.userActivity.completionTime - this.maze.userActivity.startTime;
+        this.maze.userActivity.active = false;
+        this.maze.userActivity.completed = true;
         
-        // Calculate score
-        this.calculateScore();
+        // Format the completion time
+        const totalSeconds = Math.floor(this.maze.userActivity.duration / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         
-        // Update the UI elements with final values
-        const completionTimeElement = document.getElementById('maze-completion-time');
-        const pathLengthElement = document.getElementById('maze-path-length');
-        
+        // Update the completion statistics
         if (completionTimeElement) {
-            const minutes = Math.floor(activity.duration / 60000);
-            const seconds = Math.floor((activity.duration % 60000) / 1000);
-            completionTimeElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            completionTimeElement.textContent = formattedTime;
         }
         
         if (pathLengthElement) {
-            pathLengthElement.textContent = `${this.maze.userPath.length} (${activity.optimalPathLength})`;
+            pathLengthElement.textContent = this.maze.userPath.length;
         }
         
-        // Update star rating based on score
-        this.updateStarRating(activity.score);
+        // Calculate score and update star rating
+        const score = this.calculateScore();
+        this.updateStarRating(score);
         
-        // Keep activity tracker visible, but switch from timer to stats
-        const timerSection = document.getElementById('maze-timer-section');
-        const statsSection = document.getElementById('maze-stats-section');
-        
-        if (timerSection) {
-            timerSection.style.opacity = '0';
-            timerSection.style.transform = 'translateY(-10px)';
-            setTimeout(() => {
-                timerSection.classList.remove('active');
-            }, 300);
+        // Switch to completed view
+        if (activityTracker) {
+            activityTracker.classList.add('completed');
         }
         
-        if (statsSection) {
-            // Prepare stats section for fade in
-            statsSection.style.opacity = '0';
-            statsSection.style.transform = 'translateY(10px)';
-            statsSection.classList.add('active');
-            
-            // Force reflow to ensure initial state is applied
-            void statsSection.offsetWidth;
-            
-            // Animate in
-            statsSection.style.opacity = '1';
-            statsSection.style.transform = 'translateY(0)';
-        }
-        
-        // Update status
-        const statusElement = document.getElementById('maze-status');
-        if (statusElement) {
-            statusElement.textContent = 'Completed!';
-        }
+        this.debug(`Maze completed! Time: ${formattedTime}, Path: ${this.maze.userPath.length}, Score: ${score}`, 'success');
     }
     
     // Update star rating based on score
     updateStarRating(score) {
-        const stars = document.querySelectorAll('.star-rating .star:not(.hard-mode-star)');
-        const hardModeStar = document.querySelector('.star-rating .hard-mode-star');
+        // Get all regular stars (excluding hard mode star)
+        const stars = document.querySelectorAll('.star:not(.hard-mode-star)');
+        const hardModeStar = document.querySelector('.hard-mode-star');
         
-        if (!stars.length) return;
+        // Calculate how many stars to fill (score is 0-100, we have 5 regular stars)
+        const starsToFill = Math.min(5, Math.ceil(score / 20));
         
-        // Calculate how many stars to fill (max 5 regular stars)
-        // Adjusted scale to require 90+ for 5 stars:
-        // 1-17: 1 star, 18-35: 2 stars, 36-53: 3 stars, 54-89: 4 stars, 90-100: 5 stars
-        let filledStars;
-        if (score >= 90) filledStars = 5;
-        else if (score >= 54) filledStars = 4;
-        else if (score >= 36) filledStars = 3;
-        else if (score >= 18) filledStars = 2;
-        else filledStars = 1;
+        // Add timing for animations
+        let delay = 0;
+        const delayIncrement = 150; // ms between each star animation
         
-        // Update each regular star
-        stars.forEach(star => {
-            const index = parseInt(star.getAttribute('data-index'), 10);
+        // Fill the stars with animation
+        stars.forEach((star, index) => {
+            // Remove previous classes
+            star.classList.remove('filled', 'special-shine');
             
-            // Clear any existing classes
-            star.classList.remove('filled');
-            
-            // Add filled class if this star should be filled
-            if (index <= filledStars) {
-                // Add a small delay to create a sequential filling effect
+            // Check if this star should be filled
+            if (index < starsToFill) {
+                // Use setTimeout to create sequential animation
                 setTimeout(() => {
                     star.classList.add('filled');
-                }, (index - 1) * 150);
+                }, delay);
+                delay += delayIncrement;
             }
         });
         
-        // Handle the hard mode star
-        if (hardModeStar && this.maze.userActivity.hardModeCompleted) {
-            // Fill the hard mode star with a special animation after all other stars
-            setTimeout(() => {
-                hardModeStar.classList.add('filled', 'special-shine');
-            }, 5 * 150 + 300); // Add extra delay after the 5th star
+        // Handle hard mode star (6th star) - only filled if perfect score in hard mode
+        if (hardModeStar) {
+            hardModeStar.classList.remove('filled', 'special-shine');
+            
+            // Check if hard mode is active and score is perfect (100)
+            const hardModeToggle = document.getElementById('hardModeToggle');
+            const isHardMode = hardModeToggle && hardModeToggle.checked;
+            
+            if (isHardMode && score >= 90) {
+                // Add with delay after the other stars
+                setTimeout(() => {
+                    hardModeStar.classList.add('filled');
+                    
+                    // Add special animation for perfect score
+                    if (score >= 95) {
+                        setTimeout(() => {
+                            hardModeStar.classList.add('special-shine');
+                        }, 300);
+                    }
+                }, delay);
+            }
         }
+        
+        this.debug(`Star rating updated: ${starsToFill}/5 stars (Score: ${score})`, 'event');
+        return starsToFill;
     }
     
-    // Calculate the user's performance score
+    // Calculate and save user's performance score
     calculateScore() {
         const activity = this.maze.userActivity;
         
-        // Calculate path ratio (how much longer than optimal)
-        const pathRatio = this.maze.userPath.length / activity.optimalPathLength;
-        
-        // Create exponential penalty for non-optimal paths
-        // This creates a steep drop-off as the path gets longer
-        const pathEfficiencyFactor = Math.pow(0.5, pathRatio - 1);
-        
-        // Time factor based on difficulty and maze size (faster is better)
-        // Use 500ms per cell as base (2 cells per second maximum pace)
-        const difficultyFactor = Math.max(0.5, this.maze.difficultyScore / 50);
-        const mazeSizeFactor = Math.sqrt(this.maze.width * this.maze.height) / 10; // Square root of area, normalized
-        
-        // Calculate expected time with 500ms per cell (2 cells/second) as the maximum reasonable pace
-        const baseTimePerCell = 500; // 500ms = 2 cells per second maximum pace
-        const expectedTime = activity.optimalPathLength * baseTimePerCell * difficultyFactor * mazeSizeFactor;
-        
-        // Add a minimum expected time for very small mazes
-        const minimumTime = 3000; // Minimum 3 seconds for even the smallest maze
-        const adjustedExpectedTime = Math.max(minimumTime, expectedTime);
-        
-        const timeFactor = Math.min(1.0, adjustedExpectedTime / activity.duration);
-        
-        // Calculate components and total
-        const components = {
-            efficiency: Math.round(pathEfficiencyFactor * 100),
-            time: Math.round(timeFactor * 100)
-        };
-        
-        // Blend the factors with appropriate weights
-        // Efficiency is weighted more heavily (70%)
-        const totalScore = Math.round(100 * 
-            (pathEfficiencyFactor * 0.7 + timeFactor * 0.3));
-        
-        // Store results
-        activity.pathEfficiency = pathEfficiencyFactor;
-        activity.scoreComponents = components;
-        
-        // Apply tiered scoring - only optimal path can get 5 stars
-        if (this.maze.userPath.length === activity.optimalPathLength) {
-            // Optimal path - allow full score range (up to 100)
-            activity.score = Math.min(100, Math.max(1, totalScore));
-        } else if (pathRatio <= 1.1) {
-            // Up to 10% longer - cap at 4 stars (89)
-            activity.score = Math.min(89, Math.max(1, totalScore));
-        } else if (pathRatio <= 1.3) {
-            // 10-30% longer - cap at 3 stars (53)
-            activity.score = Math.min(53, Math.max(1, totalScore));
-        } else if (pathRatio <= 1.6) {
-            // 30-60% longer - cap at 2 stars (35)
-            activity.score = Math.min(35, Math.max(1, totalScore));
-        } else {
-            // 60%+ longer (approaching 2x) - cap at 1 star (17)
-            activity.score = Math.min(17, Math.max(1, totalScore));
+        // If some data is missing, return 0
+        if (!activity.duration || !activity.optimalPathLength) {
+            return 0;
         }
         
-        return activity.score;
+        // 1. Path efficiency score (0-40 points)
+        // Perfect = user path length is equal to the optimal path
+        const userPathLength = this.maze.userPath.length;
+        const pathRatio = activity.optimalPathLength / userPathLength;
+        const efficiencyScore = Math.min(40, Math.round(pathRatio * 40));
+        
+        // 2. Time efficiency score (0-30 points)
+        // Base expectation: 2 seconds per cell in optimal path for perfect score
+        const expectedTime = activity.optimalPathLength * 2000; // milliseconds
+        const timeRatio = Math.min(1, expectedTime / activity.duration);
+        const timeScore = Math.round(timeRatio * 30);
+        
+        // 3. Exploration score (0-30 points)
+        // Perfect = user explored the whole maze
+        const totalCells = this.maze.width * this.maze.height;
+        const explorationRatio = Math.min(1, activity.uniqueCellsVisited.size / totalCells);
+        const explorationScore = Math.round(explorationRatio * 30);
+        
+        // Calculate total score (0-100)
+        const totalScore = Math.min(100, efficiencyScore + timeScore + explorationScore);
+        
+        // Save scores for reference
+        activity.score = totalScore;
+        activity.scoreComponents = {
+            efficiency: efficiencyScore,
+            time: timeScore,
+            exploration: explorationScore
+        };
+        
+        // Check if completed in hard mode
+        const hardModeToggle = document.getElementById('hardModeToggle');
+        if (hardModeToggle && hardModeToggle.checked) {
+            activity.hardModeCompleted = true;
+        }
+        
+        this.debug(`Score calculated: ${totalScore} (Efficiency: ${efficiencyScore}, Time: ${timeScore}, Exploration: ${explorationScore})`, 'event');
+        
+        return totalScore;
     }
     
     // Initialize the module

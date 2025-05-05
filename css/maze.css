@@ -522,171 +522,105 @@ input:focus + .slider {
 
 /* Activity Tracker Styles */
 #maze-activity-tracker {
-  margin: var(--spacing-sm) auto;
-  padding: var(--spacing-sm);
-  max-width: 300px;
-  background: var(--color-bg-light);
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--color-text);
   border-radius: var(--border-radius);
+  padding: var(--spacing-sm);
+  margin: var(--spacing-md) auto;
+  transform: rotate(-0.5deg);
+  background-color: var(--color-paper);
   box-shadow: var(--box-shadow);
-  text-align: left;
-  clear: both;
-  display: none; /* Initially hidden */
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-#maze-activity-tracker.active {
-  display: block; /* Show when active */
-  opacity: 1;
-  transform: translateY(0);
-  visibility: visible;
-  pointer-events: auto;
-}
-
-#maze-timer-section {
-  display: none;
-  text-align: center;
-  opacity: 0;
-  transform: translateY(0);
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-  visibility: hidden;
-  position: absolute;
-  width: 100%;
-}
-
-#maze-timer-section.active {
-  display: block; /* Show when active */
-  opacity: 1;
-  visibility: visible;
   position: relative;
+  overflow: hidden;
+  max-width: 33.33%;
+  width: 33.33%;
+  transition: all 0.3s ease;
 }
 
-#maze-timer {
-  font-size: 1.4em;
-  font-weight: bold;
-  color: var(--color-accent);
-  margin-bottom: var(--spacing-xs);
-}
-
-#maze-status {
-  font-size: 1em;
-  color: var(--color-text-secondary);
-}
-
-#maze-stats-section {
-  display: none;
-  font-size: 1.1em;
-  opacity: 0;
-  transform: translateY(0);
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-  visibility: hidden;
-  position: absolute;
-  width: 100%;
-}
-
-#maze-stats-section.active {
-  display: block; /* Show when active */
-  opacity: 1;
-  visibility: visible;
-  position: relative;
-}
-
-.maze-stat {
+/* Solving view styling - shows during active maze solving */
+.solving-view {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-xs) 0;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 1.1em;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  height: 1.2em;
+  width: 100%;
+  padding: 0.2em var(--spacing-sm);
 }
 
-.maze-stat:last-child {
-  border-bottom: none;
-}
-
-.maze-stat .star-rating {
-  margin-left: auto;
-}
-
-.stat-label {
+.solving-view #maze-status {
   font-weight: bold;
-  color: var(--color-text);
-  margin-right: var(--spacing-sm);
+  margin-right: 0;
+  text-align: left;
+  flex: 1;
 }
 
-/* Score styling */
-#maze-score {
-  font-size: 1.4em;
-  font-weight: bold;
-  color: var(--color-accent);
-  margin-left: auto; /* Right align the score */
-}
-
-/* Star Rating Styles */
-.star-rating-container {
-  display: flex;
-  justify-content: center;
-  margin: var(--spacing-md) 0 var(--spacing-lg) 0;
+.solving-view #maze-timer {
+  font-size: 1.6em;
+  margin-right: 0;
   text-align: center;
+  flex: 1;
 }
 
-.star-rating {
+.solving-view #resetPathBtn {
+  min-width: auto;
+  min-height: auto;
+  padding: 0;
+  margin-left: 0;
+  text-align: right;
+  flex: 1;
   display: flex;
-  gap: var(--spacing-xs);
-  margin: var(--spacing-xs) 0;
+  justify-content: flex-end;
 }
 
-.star {
-  font-size: 2em; /* Slightly larger stars */
-  width: 1em;
-  height: 1em;
-  display: inline-block;
-  position: relative;
-  color: var(--color-star-empty);
-  transition: color 0.3s ease-in-out;
+/* Results view - hidden during solving, shown when completed */
+.results-view {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.star.filled {
-  color: var(--color-star-filled);
+/* Show results view when maze is completed */
+#maze-activity-tracker.completed .solving-view {
+  display: none;
 }
 
-.star::before {
-  content: "★";
-  position: absolute;
-  top: 0;
-  left: 0;
+#maze-activity-tracker.completed .results-view {
+  display: block;
+  opacity: 1;
 }
 
-/* Animation for stars */
-@keyframes star-pop {
-  0% { transform: scale(0.5); opacity: 0.7; }
-  70% { transform: scale(1.2); }
-  100% { transform: scale(1); opacity: 1; }
+/* Hide the duplicate timer/status elements used for JS compatibility */
+#maze-timer-section.hidden {
+  display: none;
 }
 
-.star.filled {
-  animation: star-pop 0.3s ease-out forwards;
+/* Media query adjustments */
+@media (max-width: 768px) {
+  .solving-view {
+    font-size: 0.9em;
+  }
+  
+  #maze-activity-tracker {
+    max-width: 80%;
+    width: 80%;
+  }
 }
 
-/* Hover effect for interactive ratings */
-.star-rating.interactive .star:hover,
-.star-rating.interactive .star:hover ~ .star {
-  color: var(--color-star-filled);
-  cursor: pointer;
-}
-
-/* Keyboard accessibility - make sure the focus outline is visible for keyboard users */
-:focus:not(:focus-visible) {
-  outline: none;
-}
-
-:focus-visible {
-  outline: var(--focus-outline);
-  outline-offset: 2px;
+@media (max-width: 576px) {
+  .solving-view {
+    font-size: 0.9em;
+  }
+  
+  #maze-activity-tracker {
+    max-width: 95%;
+    width: 95%;
+  }
+  
+  .solving-view #resetPathBtn .reload-icon {
+    width: 1.5em;
+    height: 1.5em;
+  }
 }
 
 /* Improved Mobile responsive styles */
