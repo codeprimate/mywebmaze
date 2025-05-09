@@ -1,256 +1,386 @@
 # My Web Maze - Developer Documentation
 
-## Application Architecture
+## Introduction
 
-My Web Maze uses a modular JavaScript architecture with individual components that work together to create an interactive maze generation and solving experience.
+My Web Maze is an interactive web application for generating, solving, and sharing maze puzzles. It features a modular JavaScript architecture with emphasis on:
 
-### Script Loading Structure
+- Procedural maze generation with configurable complexity
+- Interactive user experience with touch/mouse support
+- Visual customization through hand-drawn styling
+- Export capabilities in multiple formats
+- Cross-device compatibility
 
-The application scripts are loaded in a specific order as defined in the main HTML file:
+## System Architecture
 
-```html
-<script src="lib/rough.js"></script>
-<script src="lib/jspdf.umd.min.js"></script>
-<script src="js/maze-core.js"></script>
-<script src="js/maze-difficulty-scorer.js"></script>
-<script src="js/maze-enhanced.js"></script>
-<script src="js/maze-optimizer.js"></script>
-<script src="js/maze-ui.js"></script>
-<script src="js/main.js"></script>
-```
+### High-Level Architecture
 
-This loading order ensures dependencies are available when needed:
-1. External libraries (rough.js for hand-drawn style, jspdf for PDF generation)
-2. Core maze functionality (basic maze generation and rendering)
-3. Enhancement modules (difficulty scoring, advanced generation algorithms)
-4. UI layer (user interactions and display)
-5. Main application entry point
+The application follows a modular architecture organized around these key components:
 
-### Core Module Structure
+- **Core Generation** - Algorithms and data structures for maze creation
+- **Rendering Layer** - SVG-based visualization with hand-drawn effects
+- **User Interface** - Controls and event handling for user interaction
+- **Path Management** - Path tracking, validation, and visualization
+- **Enhancement Modules** - Optional extensions for advanced features
 
-The application is built around the `MazeApp` module, which is implemented as an Immediately Invoked Function Expression (IIFE). This pattern provides encapsulation while exposing a controlled public API.
+### Module Dependencies
 
-```javascript
-const MazeApp = (function() {
-    // Private implementation details
-    
-    // Public API
-    return {
-        Maze: Maze,
-        MazeRenderer: MazeRenderer,
-        WallManager: WallManager,
-        EnhancedMaze: EnhancedMaze,  // Added by maze-enhanced.js
-        MazeOptimizer: MazeOptimizer,  // Added by maze-optimizer.js
-        MazeDifficultyScorer: MazeDifficultyScorer  // Added by maze-difficulty-scorer.js
-    };
-})();
-```
+The application loads scripts in a specific order to ensure dependencies are properly resolved:
 
-### Component Organization
+#### External Libraries
+- rough.js - Provides the hand-drawn visual styling
+- jspdf.umd.min.js - Enables PDF generation for maze exports
 
-The application is divided into several main components, each with a specific responsibility:
-
-#### Core Components (maze-core.js)
-
-1. **MazeApp** - The main module that provides the foundation for the application.
-2. **Maze** - The base class for maze generation using a depth-first search algorithm.
-3. **MazeRenderer** - Handles rendering the maze using SVG and rough.js.
-4. **WallManager** - Manages operations related to maze walls (removing walls, calculating coordinates).
+#### Core Modules
+- maze-core.js - Contains fundamental maze generation and rendering
 
 #### Enhancement Modules
+- maze-difficulty-scorer.js - Adds maze complexity analysis
+- maze-enhanced.js - Extends generation with advanced algorithms
+- maze-optimizer.js - Provides maze quality optimization
+- maze-hard-mode.js - Implements "fog of war" visibility for exploration challenge
 
-1. **MazeDifficultyScorer** (maze-difficulty-scorer.js) - Analyzes and scores maze difficulty.
-2. **EnhancedMaze** (maze-enhanced.js) - Extends the base Maze class with advanced generation techniques.
-3. **MazeOptimizer** (maze-optimizer.js) - Creates optimized mazes through multiple generations and parameter tuning.
+#### User Interface
+- maze-ui.js - Manages user interactions and display
 
-#### User Interface (maze-ui.js)
+#### Application Entry
+- main.js - Initializes the application when the DOM is loaded
 
-1. **MazeUI** - Manages the user interface, event handling, and interactions.
-2. **PathManager** - Handles user path drawing, validation, and visualization.
+### Module Communication Pattern
 
-#### Application Entry (main.js)
+Components interact through several mechanisms:
 
-A small script that initializes the application when the DOM is loaded.
+- **Direct References** - MazeUI maintains references to current instances
+- **DOM Events** - Components listen for standard and custom events
+- **Callback Chains** - Methods use callbacks for completion notification
+- **State Synchronization** - URL hash state persists maze configurations
 
-## Component Details
+## Core Components
+
+### MazeApp Module
+
+The MazeApp module serves as the primary container that encapsulates maze functionality. Implemented as an Immediately Invoked Function Expression (IIFE), it provides encapsulation while exposing a controlled public API.
+
+#### Public API Components
+- **Maze** - Core maze data structure and generation
+- **MazeRenderer** - SVG-based maze renderer
+- **WallManager** - Wall coordinate calculations and manipulation
+- **generateFullSheet** - Creates printable page of mazes
+- **generateOptimizedMaze** - Generates maze with optimized characteristics  
+- **init** - Module initialization function
+
+#### Key Methods
+- **init()** - Application entry point that bootstraps the system, ensures one-time initialization, and coordinates DOM-ready events
+- **generateOptimizedMaze()** - Creates high-quality mazes by generating multiple candidates and selecting the best based on difficulty metrics
+- **generateFullSheet()** - Produces printer-friendly documents with multiple mazes arranged in a grid layout with consistent styling
 
 ### Maze Class
 
-The base class for maze generation:
+The Maze class provides the fundamental data structure representing a single maze instance. It manages the grid of cells and handles the core generation algorithm.
 
-```javascript
-class Maze {
-    constructor(width, height, cellSize, seed) {
-        // Initialize properties
-    }
-    
-    createCell(row, col) { /* Create a new cell structure */ }
-    initialize() { /* Set up the grid */ }
-    seedRandom(seed) { /* Create seeded RNG */ }
-    randomInt(min, max) { /* Generate random integer */ }
-    generate() { /* Generate maze using DFS algorithm */ }
-    getUnvisitedNeighbors(cell) { /* Get neighbors for DFS */ }
-    createEntranceAndExit() { /* Create openings */ }
-    calculateDifficulty() { /* Calculate maze complexity */ }
-    findSolutionPath() { /* Find path from entrance to exit */ }
-}
-```
+#### Key Properties
+- Grid structure (2D array of cells)
+- Dimensions (width, height)
+- Cell size for rendering
+- Seed value for reproducible generation
+- Entrance and exit positions
+- Difficulty metrics
 
-### EnhancedMaze Class
+#### Key Methods
+- **createCell()** - Constructs cell objects with wall and path properties
+- **initialize()** - Sets up the initial grid with all walls intact
+- **seedRandom()** - Creates a deterministic random number generator
+- **generate()** - Implements the depth-first search maze generation algorithm
+- **getUnvisitedNeighbors()** - Identifies candidate cells during generation
+- **createEntranceAndExit()** - Places openings at strategic positions
+- **createOpening()** - Creates a specific opening on a maze boundary
+- **calculateDifficulty()** - Evaluates maze complexity for users
+- **getDifficultyLabel()** - Provides human-readable difficulty rating
+- **getSvgData()** - Prepares SVG representation for export
 
-Extends the base Maze class with advanced generation features:
+### WallManager
 
-```javascript
-class EnhancedMaze extends MazeApp.Maze {
-    constructor(width, height, cellSize, seed, params = {}) {
-        super(width, height, cellSize, seed);
-        // Initialize enhancement parameters
-    }
-    
-    generate() { /* Enhanced generation with wall removal */ }
-    generateEnhancedDFS() { /* Modified DFS with directional bias */ }
-    applyStrategicWallRemoval() { /* Remove walls to increase complexity */ }
-    // Additional enhancement methods
-}
-```
+The WallManager provides utilities for working with maze walls during generation and rendering. It maintains the relationships between adjacent cells and calculates visual coordinates.
+
+#### Key Features
+- Maintains a mapping of directions to their opposites (north→south, east→west, etc.)
+- Removes walls between adjacent cells during maze generation
+- Calculates the exact coordinates needed to render walls in SVG
+- Handles consistent wall state between adjacent cells
+
+#### Key Methods
+- **removeWalls()** - Removes walls between two adjacent cells and updates both cells for consistency
+- **getWallCoordinates()** - Calculates the SVG line coordinates for walls based on cell position and direction
+
+### MazeRenderer
+
+The MazeRenderer handles the visualization of maze structures using SVG and the rough.js library for a hand-drawn aesthetic.
+
+#### Key Features
+- Creates and manages the SVG elements for maze display
+- Renders walls with randomized "hand-drawn" styling
+- Handles entrance and exit markers with appropriate styling
+- Manages SVG dimensions and viewport settings
+- Provides methods for clearing and redrawing the maze
+
+#### Key Methods
+- **render()** - Draws the complete maze with all walls and markers
+- **clear()** - Removes all SVG elements from the container
+- **setSize()** - Updates SVG element dimensions to match maze size
+- **createElement()** - Helper to create namespaced SVG elements with attributes
+- **drawMarker()** - Draws colored markers at specified positions
+
+## Enhancement Modules
+
+### EnhancedMaze
+
+The EnhancedMaze extends the base Maze class with advanced generation capabilities that create more interesting and complex mazes.
+
+#### Key Enhancements
+- Directional persistence (tendency to continue in same direction)
+- Strategic wall removal to create loops and alternate paths
+- Longer and more complex dead ends
+- Optimized entrance/exit placement for better user experience
+- Parameter tuning for different difficulty levels
+
+#### Key Methods
+- **generate()** - Overrides the base maze generation with enhanced multi-phase generation
+- **generateEnhancedDFS()** - Implements depth-first search with directional persistence
+- **applyStrategicWallRemoval()** - Adds loops by strategically removing walls
+- **chooseNextNeighbor()** - Applies directional bias when selecting the next cell
+- **findDeadEnds()** - Identifies dead-end cells for potential reconnection
+- **storeOriginalMazeConfig()** - Creates snapshot of maze state for potential reversion
 
 ### MazeDifficultyScorer
 
-Analyzes maze complexity and assigns a difficulty score:
+The MazeDifficultyScorer analyzes maze complexity and assigns a difficulty rating based on various factors.
 
-```javascript
-class MazeDifficultyScorer {
-    constructor(maze) {
-        this.maze = maze;
-        // Initialize scoring properties
-    }
-    
-    calculateDifficulty() { /* Main scoring method */ }
-    analyzeMaze() { /* Core maze analysis */ }
-    findSolutionPath() { /* A* pathfinding */ }
-    identifyBranchPoints() { /* Find decision points */ }
-    analyzeAlternatePaths() { /* Analyze branches */ }
-    // Various scoring factor calculations
-}
-```
+#### Scoring Factors
+- Solution path length and complexity
+- Number and length of branching paths
+- Decision points along solution path
+- Maze size adjustments for fair comparison
+- False path density and distribution
+- Overall maze structure and symmetry
+
+#### Key Methods
+- **calculateDifficulty()** - Main scoring algorithm
+- **analyzeMaze()** - Core structure analysis
+- **findSolutionPath()** - A* pathfinding implementation
+- **identifyBranchPoints()** - Decision point detection
+- **analyzeAlternatePaths()** - Branch analysis
 
 ### MazeOptimizer
 
-Creates optimized mazes through multiple generations:
+The MazeOptimizer creates optimized mazes through multiple generations, selecting the best candidate based on difficulty scoring.
 
-```javascript
-class MazeOptimizer {
-    constructor(baseOptions = {}) {
-        // Initialize optimizer properties
-    }
-    
-    optimize() { /* Main optimization method */ }
-    generateCandidate(params, attemptNumber) { /* Create a candidate maze */ }
-    sampleParameters(attempt) { /* Generate parameter variations */ }
-    _selectBestCandidate() { /* Choose the best maze */ }
-    // Helper methods
-}
-```
+#### Key Features
+- Generates multiple maze candidates with varied parameters
+- Applies adaptive parameter sampling based on early results
+- Evaluates candidates using MazeDifficultyScorer
+- Selects the highest-scoring maze based on target criteria
+- Supports early termination when quality thresholds are met
 
-### MazeUI
+#### Key Methods
+- **optimize()** - Main method that generates and evaluates multiple maze candidates
+- **generateCandidate()** - Creates a single candidate maze with specified parameters
+- **sampleParameters()** - Intelligently selects parameters to try based on previous results
+- **getBestMaze()** - Returns the best maze found during optimization
+- **getParameterStatistics()** - Provides analytics about which parameters produced better results
 
-Handles user interface and interactions:
+### HardModeManager
 
-```javascript
-const MazeUI = (function() {
-    // Private variables
-    
-    // Helper functions
-    function generateMaze() { /* Create and display a maze */ }
-    function updateUrlHash(seed) { /* Update URL with current seed */ }
-    function setupEventListeners() { /* Set up UI interactions */ }
-    function downloadMaze() { /* Export SVG */ }
-    function downloadPng() { /* Export PNG */ }
-    function downloadFullSheet() { /* Create multi-maze PDF */ }
-    
-    // Main initialization
-    function init() {
-        // Initialize UI, set up renderer, create first maze
-    }
-    
-    // Public API
-    return {
-        init: init
-    };
-})();
-```
+The HardModeManager implements a "fog of war" visibility constraint to increase the challenge level by limiting the player's view of the maze.
+
+#### Key Features
+- Dynamic visibility area that follows the player's position
+- Smooth animated transitions between positions
+- Customizable visibility radius based on difficulty
+- SVG mask with radial gradient for natural visibility falloff
+- Persistence of hard mode preference between sessions
+
+#### Key Methods
+- **toggle()** - Enables or disables hard mode
+- **updateVisibleArea()** - Updates the visibility based on current position
+- **updateOverlay()** - Creates or updates the SVG mask overlay
+- **isCellVisible()** - Determines if a specific cell is within the visible area
+- **handleCompletion()** - Special handling when maze is completed in hard mode
+
+## User Interface Components
+
+### MazeUI Module
+
+The MazeUI module handles the main user interface and interactions, coordinating between user input and maze display.
+
+#### Key Responsibilities
+- Initializing UI components and event listeners
+- Managing user input and validation for maze parameters
+- Coordinating maze generation based on user requests
+- Handling responsive layout across device sizes
+- Managing export functionality (SVG, PNG, PDF)
+- Providing visual feedback during operations
+
+#### Key Methods
+- **init()** - Sets up UI components and initial maze
+- **generateMaze()** - Creates new mazes based on parameters
+- **setupEventListeners()** - Connects UI elements to handlers
+- **calculateOptimalDimensions()** - Sizes maze for current device
+- **downloadMaze()/downloadPng()/downloadFullSheet()** - Export methods
+
+#### MazeController
+
+The MazeUI module contains a MazeController sub-component that manages direct user interactions with the maze. This controller is responsible for:
+
+- Processing user input for maze generation parameters
+- Validating and sanitizing input values
+- Managing URL hash state for sharing/persistence
+- Coordinating the maze generation workflow
+- Handling UI updates based on maze state
+
+Key methods include:
+- **generateMaze()** - Core method that processes inputs and creates a new maze
+- **updateUrlHash()/getSeedFromHash()** - URL state management
+- **isValidInput()** - Parameter validation
+- **updateFullSheetButtonVisibility()** - Conditional UI adjustments
+- **resizeInput()** - Dynamic input sizing
 
 ### PathManager
 
-Manages user path drawing and maze solving:
+The PathManager handles all user interactions related to solving the maze, including path drawing, validation, and scoring.
 
-```javascript
-class PathManager {
-    constructor(maze, svgElement, rough) {
-        // Initialize path properties
-    }
-    
-    setupPathGroup() { /* Create SVG group for path */ }
-    resetPath() { /* Clear user path */ }
-    addCellToPath(cell) { /* Add cell to solution path */ }
-    renderPath() { /* Draw the current path */ }
-    setupInteractions() { /* Set up mouse/touch handling */ }
-    completeMaze() { /* Handle maze completion */ }
-    
-    static init(maze, svgElement) { /* Create path manager */ }
-}
-```
+#### Key Responsibilities
+- Tracking the user's path through the maze
+- Validating moves against maze walls and rules
+- Rendering the path with animations and visual feedback
+- Measuring solving time and user performance
+- Calculating scores and providing completion feedback
 
-## Application Flow
+#### Key Methods
+- **setupInteractions()** - Configures pointer/touch event handling
+- **canAddCellToPath()** - Contains path validation logic
+- **addCellToPath()** - Updates path with new cell
+- **renderPath()** - Visualizes current path
+- **completeMaze()** - Handles successful completion
+- **calculateScore()** - Analyzes user performance
 
-1. When the page loads, `main.js` calls `MazeUI.init()`
-2. `MazeUI.init()` initializes the UI and calls `generateMaze()`
-3. `generateMaze()` creates a new maze based on current parameters:
-   - If optimization is enabled, it uses `MazeOptimizer` to create a more complex maze
-   - Otherwise, it creates a regular `Maze` or `EnhancedMaze`
-4. The maze is rendered using `MazeRenderer`
-5. `PathManager` is initialized to handle user interactions
-6. Event listeners manage user inputs (resizing, maze regeneration, download options)
+## System Flows
 
-## Feature Implementation Details
+### Initialization Sequence
 
-### Maze Generation
+The application follows this initialization sequence:
 
-The core maze generation uses a depth-first search algorithm with a stack:
-1. Start from a random cell
-2. Mark the current cell as visited
-3. Find an unvisited neighbor
-4. Remove the wall between the current cell and the chosen neighbor
-5. Make the chosen neighbor the current cell and repeat
-6. If there are no unvisited neighbors, backtrack using the stack
-7. Continue until all cells are visited
+1. The DOM's `DOMContentLoaded` event triggers `main.js`, which calls `MazeApp.init()`
+2. `MazeApp.init()` verifies the module hasn't already been initialized, then:
+   - Sets the initialization flag
+   - Registers itself in the global scope for cross-module access
+   - Waits for DOM readiness, then calls `MazeUI.init()`
 
-The `EnhancedMaze` class adds complexity through:
-- Directional persistence (tendency to continue in same direction)
-- Strategic wall removal to create loops
-- Longer dead ends
-- Optimized entrance/exit placement
+3. `MazeUI.init()` performs the following sequence:
+   - Creates the maze SVG container
+   - Initializes the `MazeRenderer` with this container
+   - Initializes the `HardModeManager` for visibility constraints
+   - Sets up the `MazeController` by calling its `setupEventListeners()` method
+   - Retrieves the seed from URL hash via `MazeController.getSeedFromHash()` (or generates a new one)
+   - Calculates optimal maze dimensions for the current device
+   - Finally calls `MazeController.generateMaze()` to create the initial maze
 
-### Difficulty Scoring
+4. When `MazeController.generateMaze()` is called:
+   - Input validation is performed on maze parameters
+   - Either a standard `Maze` or optimized maze via `MazeOptimizer` is created
+   - The maze is rendered to the SVG container
+   - `PathManager` is initialized with the maze and SVG references
+   - `HardModeManager` is updated with the new maze reference
+   - UI elements (dimensions, difficulty display) are updated
+   - Timer and activity tracking are reset
 
-The `MazeDifficultyScorer` analyzes maze complexity based on:
-- Solution path length
-- Number and length of branching paths
-- Decision points along solution path
-- Maze size adjustments
-- False path density
-- Overall maze structure
+### Maze Generation Flow
 
-### User Interactions
+When a user requests a new maze:
+1. The request is handled by `MazeController.generateMaze()`
+2. UI input validation occurs first
+3. User parameters (dimension, seed) are captured and sanitized
+4. The seed is stored in URL hash for sharing/persistence
+5. The appropriate maze type is instantiated based on settings
+6. The maze generation algorithm executes
+7. Entrance/exit points are created
+8. Difficulty scoring is calculated
+9. The maze is rendered to the SVG container
+10. PathManager is re-initialized for the new maze
 
-The application supports several user interactions:
-- Maze regeneration with custom seeds
-- Size adjustment via pinch-zoom or mouse wheel
-- Shape adjustment by dragging the corner handle
-- Path drawing to solve the maze
-- Exporting to SVG, PNG, or multi-maze PDF
+### Path Drawing Flow
 
-## Adding New Features
+When a user draws a path through the maze:
+1. Pointer/touch events are captured by event listeners
+2. The events are normalized across devices
+3. Cell coordinates are calculated from event positions
+4. Cell validity is checked against walls and previous path
+5. If valid, the cell is added to the path
+6. Path visuals are updated with animations
+7. If the path reaches the exit:
+   - Timer is stopped
+   - Completion animation plays
+   - Statistics are calculated and displayed
+   - Star rating is determined based on efficiency
+
+### Export Flow
+
+When a user exports a maze:
+1. The appropriate export method is called based on format
+2. For SVG: the maze SVG data is serialized directly
+3. For PNG: SVG is rendered to canvas, then converted to PNG
+4. For PDF sheets:
+   - Multiple mazes are generated with random seeds
+   - Each maze is rendered to a temporary SVG
+   - SVGs are converted to images
+   - Images are placed on a PDF document
+   - Metadata (seeds, dimensions) is added
+5. The resulting file is sent to the browser for download
+
+## Cross-Platform Support
+
+### Responsive Design
+
+The application adapts to different screen sizes:
+
+- The maze dimensions are dynamically calculated based on available screen space
+- For mobile devices, the calculation takes into account touch target sizes
+- Portrait and landscape orientations are handled with different optimal dimensions
+- The UI layout adjusts between a column layout on narrow screens and row layout on wider screens
+
+### Touch Interactions
+
+The application has specialized handling for touch input:
+
+- Pointer events are normalized across mouse, touch, and pen inputs when possible
+- Touch events provide fallback support for older mobile browsers
+- Multi-touch gestures like pinch-zoom are detected and handled specially
+- Touch targets are sized appropriately for finger interaction on small screens
+- Visual feedback is provided during touch interactions with visible indicators
+
+### Performance Optimizations
+
+Several techniques ensure smooth performance on mobile devices:
+
+- SVG rendering is optimized with simplified shapes when needed
+- Animation complexity is reduced on lower-powered devices
+- Maze generation is limited to appropriate sizes for the device
+- Long-running operations provide visual feedback with loading indicators
+- Event handlers use debouncing to prevent excessive processing during interactions
+- Heavy operations like PDF generation are optimized for memory efficiency
+
+### Device-Specific Features
+
+The application includes the following adaptations for different devices:
+
+- Screen size detection for optimized maze dimensions
+- Touch-specific event handling for mobile devices
+- Larger touch targets on smaller screens for better usability
+- Specialized pinch-zoom gesture handling for mobile maze resizing
+- Responsive layout adjustments based on viewport dimensions
+- Different UI configurations based on screen size breakpoints
+
+## Development Guidelines
+
+### Adding New Features
 
 When adding new features to the application:
 
@@ -261,10 +391,52 @@ When adding new features to the application:
 5. For rendering modifications, extend `MazeRenderer`
 6. For optimization strategy changes, update `MazeOptimizer`
 
-## Build Process
+### Build Process
 
 The application does not use a build system. All JavaScript files are loaded directly by the browser. When making changes:
 
 1. Edit the relevant `.js` files
 2. Test in the browser
 3. No compilation or bundling is required 
+
+## Project Layout
+
+The project follows a simple, organized directory structure designed for direct browser loading without a build step:
+
+```
+mywebmaze/
+├── index.html               # Main application HTML
+├── README.md                # Project documentation
+├── assets/                  # Static resources
+│   ├── favicon.ico          # Site favicon
+│   ├── fonts/               # Custom fonts
+│   │   ├── NanumPenScript-Regular.ttf  # Hand-drawn style font
+│   │   └── OFL.txt          # Font license
+│   └── images/              # Image assets
+│       └── screenshot.png   # Application screenshot
+├── css/                     # Styling
+│   └── maze.css             # Main stylesheet
+├── docs/                    # Documentation
+│   └── app_dev_basics.md    # Developer guide
+├── js/                      # JavaScript modules
+│   ├── main.js              # Application entry point
+│   ├── maze-core.js         # Core maze generation
+│   ├── maze-difficulty-scorer.js  # Difficulty evaluation
+│   ├── maze-enhanced.js     # Advanced generation algorithms
+│   ├── maze-hard-mode.js    # Fog of war visibility
+│   ├── maze-optimizer.js    # Maze quality optimization
+│   ├── maze-path-manager.js # User solution handling
+│   └── maze-ui.js           # User interface management
+└── lib/                     # External libraries
+    ├── jspdf.umd.min.js     # PDF generation
+    └── rough.js             # Hand-drawn rendering
+```
+
+This structure follows web standard practices with clean separation of concerns:
+- Core application logic in `js/`
+- Third-party dependencies in `lib/`
+- Visual assets in `assets/`
+- Styling in `css/`
+- Documentation in `docs/`
+
+All files are directly referenced from index.html without a bundler, making development straightforward. 
