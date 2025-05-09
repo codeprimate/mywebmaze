@@ -1248,3 +1248,56 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
     font-size: 1.2em;
   }
 }
+
+/* Tilt controls toggle */
+.tilt-controls-toggle {
+  display: none; /* Hidden by default, will be shown via JS only on mobile devices */
+  align-items: center;
+  gap: 0;
+  margin: var(--spacing-md) 0;
+  justify-content: center;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.tilt-controls-toggle::before {
+  content: none;
+}
+
+.tilt-controls-toggle:hover::before {
+  content: none;
+}
+
+.tilt-controls-toggle > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tilt-controls-toggle label[for="tiltControlsToggle"] {
+  transform: rotate(-1deg);
+  transition: transform var(--transition-default);
+  font-weight: normal;
+}
+
+.tilt-controls-toggle .switch {
+  margin-right: var(--spacing-md);
+  transform: rotate(-1deg);
+  transition: transform var(--transition-default);
+}
+
+.tilt-controls-toggle:hover label[for="tiltControlsToggle"],
+.tilt-controls-toggle:hover .switch {
+  transform: rotate(1deg);
+}
+
+input#tiltControlsToggle:checked ~ label[for="tiltControlsToggle"] {
+  font-weight: bold;
+}
+
+/* For smaller screens, adjust layout but don't show/hide based on width */
+@media (max-width: 480px) {
+  .hard-mode-toggle, .tilt-controls-toggle {
+    display: inline-flex; /* This will only affect tilt-controls-toggle when it's already visible via JS */
+    margin: var(--spacing-md) var(--spacing-sm);
+  }
+}

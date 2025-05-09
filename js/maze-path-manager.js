@@ -1767,6 +1767,21 @@ class PathManager {
         if (this.tiltConfig.initializedOnce) return;
         this.tiltConfig.initializedOnce = true;
         
+        // Check if this is a mobile device with orientation support
+        const isMobileDevice = this.detectMobileDevice();
+        
+        // Handle the visibility of the tilt controls toggle based on device capability
+        const tiltToggleContainer = document.querySelector('.tilt-controls-toggle');
+        if (tiltToggleContainer) {
+            if (isMobileDevice && window.DeviceOrientationEvent) {
+                tiltToggleContainer.style.display = 'flex'; // Show only on mobile with orientation support
+                this.debug('Mobile device with orientation support detected, showing tilt controls', 'info');
+            } else {
+                tiltToggleContainer.style.display = 'none'; // Hide on desktop or devices without support
+                this.debug('Desktop or device without orientation support detected, hiding tilt controls', 'info');
+            }
+        }
+        
         // Exit if orientation events aren't supported
         if (!window.DeviceOrientationEvent) {
             this.tiltConfig.enabled = false;
@@ -1774,7 +1789,33 @@ class PathManager {
             return;
         }
         
-        this.debug('Setting up tilt controls', 'info');
+        // Exit if not a mobile device
+        if (!isMobileDevice) {
+            this.tiltConfig.enabled = false;
+            this.debug('Not a mobile device, disabling tilt controls', 'info');
+            return;
+        }
+        
+        this.debug('Setting up tilt controls for mobile device', 'info');
+        
+        // Check if tilt controls are enabled via the toggle
+        const tiltToggle = document.getElementById('tiltControlsToggle');
+        if (tiltToggle) {
+            // Set initial state based on toggle
+            this.tiltConfig.enabled = tiltToggle.checked;
+            
+            // Add event listener for toggle changes
+            tiltToggle.addEventListener('change', (e) => {
+                this.tiltConfig.enabled = e.target.checked;
+                if (this.tiltConfig.enabled) {
+                    this.attachTiltEventListener();
+                    this.debug('Tilt controls enabled via toggle', 'success');
+                } else {
+                    this.disableTiltControls();
+                    this.debug('Tilt controls disabled via toggle', 'info');
+                }
+            });
+        }
         
         // Create debug element if in debug mode
         if (this.debugEnabled) {
@@ -1799,50 +1840,116 @@ class PathManager {
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             this.debug('Device requires permission for orientation events (iOS 13+)', 'info');
             
-            // Create permission request button
-            const permissionBtn = document.createElement('button');
-            permissionBtn.textContent = 'Enable Tilt Controls';
-            permissionBtn.style.position = 'fixed';
-            permissionBtn.style.top = '50%';
-            permissionBtn.style.left = '50%';
-            permissionBtn.style.transform = 'translate(-50%, -50%)';
-            permissionBtn.style.padding = '10px 20px';
-            permissionBtn.style.backgroundColor = '#4285F4';
-            permissionBtn.style.color = 'white';
-            permissionBtn.style.border = 'none';
-            permissionBtn.style.borderRadius = '4px';
-            permissionBtn.style.fontSize = '16px';
-            permissionBtn.style.zIndex = '10000';
-            permissionBtn.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-            
-            permissionBtn.addEventListener('click', () => {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            this.debug('DeviceOrientation permission granted', 'success');
-                            this.attachTiltEventListener();
-                            document.body.removeChild(permissionBtn);
-                        } else {
-                            this.debug('DeviceOrientation permission denied', 'error');
+            // Create permission request button container if it doesn't exist
+            let permissionContainer = document.getElementById('tilt-permission-container');
+            if (!permissionContainer) {
+                permissionContainer = document.createElement('div');
+                permissionContainer.id = 'tilt-permission-container';
+                permissionContainer.className = 'tilt-permission-container';
+                permissionContainer.style.position = 'fixed';
+                permissionContainer.style.top = '50%';
+                permissionContainer.style.left = '50%';
+                permissionContainer.style.transform = 'translate(-50%, -50%)';
+                permissionContainer.style.padding = '20px';
+                permissionContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                permissionContainer.style.border = '2px solid #4285F4';
+                permissionContainer.style.borderRadius = '8px';
+                permissionContainer.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                permissionContainer.style.zIndex = '10000';
+                permissionContainer.style.textAlign = 'center';
+                permissionContainer.innerHTML = `
+                    <p style="margin-top:0;font-weight:bold;">Enable Tilt Controls</p>
+                    <p style="margin-bottom:15px;">This device requires permission to access orientation sensors.</p>
+                    <button id="tiltPermissionBtn" style="padding:10px 20px;background:#4285F4;color:white;border:none;border-radius:4px;cursor:pointer;">
+                        Grant Permission
+                    </button>
+                    <button id="tiltPermissionCancelBtn" style="padding:10px 20px;background:#ccc;color:#333;border:none;border-radius:4px;cursor:pointer;margin-left:10px;">
+                        Cancel
+                    </button>
+                `;
+                document.body.appendChild(permissionContainer);
+                
+                // Add event listener for permission button
+                document.getElementById('tiltPermissionBtn').addEventListener('click', () => {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                this.debug('DeviceOrientation permission granted', 'success');
+                                // Only enable if toggle is on
+                                if (tiltToggle && tiltToggle.checked) {
+                                    this.attachTiltEventListener();
+                                }
+                                document.body.removeChild(permissionContainer);
+                            } else {
+                                this.debug('DeviceOrientation permission denied', 'error');
+                                this.tiltConfig.enabled = false;
+                                if (tiltToggle) tiltToggle.checked = false;
+                                document.body.removeChild(permissionContainer);
+                            }
+                        })
+                        .catch(error => {
+                            this.debug(`Error requesting permission: ${error}`, 'error');
                             this.tiltConfig.enabled = false;
-                            document.body.removeChild(permissionBtn);
-                        }
-                    })
-                    .catch(error => {
-                        this.debug(`Error requesting permission: ${error}`, 'error');
-                        this.tiltConfig.enabled = false;
-                        document.body.removeChild(permissionBtn);
-                    });
-            });
-            
-            document.body.appendChild(permissionBtn);
+                            if (tiltToggle) tiltToggle.checked = false;
+                            document.body.removeChild(permissionContainer);
+                        });
+                });
+                
+                // Add event listener for cancel button
+                document.getElementById('tiltPermissionCancelBtn').addEventListener('click', () => {
+                    this.debug('Permission request canceled by user', 'info');
+                    this.tiltConfig.enabled = false;
+                    if (tiltToggle) tiltToggle.checked = false;
+                    document.body.removeChild(permissionContainer);
+                });
+            }
             
             // User needs to interact with the page first on iOS
             this.debug('Waiting for user to grant permission', 'info');
         } else {
-            // No permission needed, attach directly
-            this.attachTiltEventListener();
+            // No permission needed, attach directly if toggle is enabled
+            if (this.tiltConfig.enabled) {
+                this.attachTiltEventListener();
+            }
         }
+    }
+    
+    /**
+     * Detects if the current device is a mobile device using
+     * a combination of feature detection and user agent analysis
+     * 
+     * @returns {boolean} True if this is a mobile device
+     */
+    detectMobileDevice() {
+        // Feature detection for touch
+        const hasTouchScreen = (
+            ('ontouchstart' in window) ||
+            (navigator.maxTouchPoints > 0) ||
+            (navigator.msMaxTouchPoints > 0)
+        );
+        
+        // Check for specific mobile features
+        const hasAccelerometer = 'DeviceMotionEvent' in window;
+        const hasOrientation = 'DeviceOrientationEvent' in window;
+        
+        // User agent detection as a fallback
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(userAgent);
+        
+        // Additional check for iPad with iOS 13+ (which has desktop-class browser)
+        const isIPadOS = (
+            navigator.platform === 'MacIntel' && 
+            navigator.maxTouchPoints > 1 &&
+            !window.MSStream
+        );
+        
+        // Debug output
+        if (this.debugEnabled) {
+            this.debug(`Device detection: Touch: ${hasTouchScreen}, Accelerometer: ${hasAccelerometer}, Orientation: ${hasOrientation}, Mobile UA: ${isMobileUA}, iPadOS: ${isIPadOS}`, 'info');
+        }
+        
+        // Consider a device mobile if it has touch AND (has a mobile user agent OR has accelerometer/orientation sensors OR is an iPad)
+        return hasTouchScreen && (isMobileUA || hasAccelerometer || hasOrientation || isIPadOS);
     }
     
     /**
