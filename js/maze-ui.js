@@ -1309,6 +1309,13 @@ const MazeUI = (function() {
         const header = document.querySelector('header');
         const headerHeight = header ? header.offsetHeight : 0;
         
+        // Measure controls container height if it's visible
+        const controlsContainer = document.querySelector('.maze-controls-container');
+        let controlsHeight = 0;
+        if (controlsContainer && window.getComputedStyle(controlsContainer).display !== 'none') {
+            controlsHeight = controlsContainer.offsetHeight + 10; // Add a small buffer
+        }
+        
         // Define configuration values based on screen size
         const config = {
             // Width multiplier decreases with larger screens
@@ -1344,7 +1351,7 @@ const MazeUI = (function() {
         
         // Calculate available space
         const availableWidth = viewportWidth * config.widthMultiplier - 20;
-        const availableHeight = viewportHeight * 0.8 - headerHeight - 100;
+        const availableHeight = viewportHeight * 0.8 - headerHeight - 100 - controlsHeight;
         
         // Calculate optimal cell size
         const cellSize = Math.floor(

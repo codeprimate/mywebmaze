@@ -1778,7 +1778,7 @@ class PathManager {
                 this.debug('Mobile device with orientation support detected, showing tilt controls', 'info');
             } else {
                 tiltToggleContainer.style.display = 'none'; // Hide on desktop or devices without support
-                // Also make sure the container doesn't take up space if empty
+                // Also make sure the container doesn't take up space if completely empty
                 const controlsContainer = document.querySelector('.maze-controls-container');
                 if (controlsContainer && !document.querySelector('.hard-mode-toggle')) {
                     controlsContainer.style.display = 'none';
