@@ -286,8 +286,8 @@ class PathManager {
             duration: null,
             
             // Path metrics
-            cellsVisited: 0,
-            uniqueCellsVisited: new Set(),
+            totalCellsVisited: 0,  // Total cell visits including repeated cells
+            uniqueCellsVisited: new Set(),  // Only counts each cell once
             pathTrace: [],
             
             // Internal comparison metrics
@@ -706,7 +706,7 @@ class PathManager {
         // Check for maze completion
         if (cell.row === this.maze.exit.row && cell.col === this.maze.exit.col) {
             this.completeMaze();
-            this.debug(`🎉 Maze completed! Path length: ${this.maze.userPath.length}`, 'success');
+            this.debug(`🎉 Maze completed! Unique cells: ${this.maze.userActivity.uniqueCellsVisited.size}, Total path: ${this.maze.userPath.length}`, 'success');
         }
         
         return true;
@@ -1441,8 +1441,9 @@ class PathManager {
         }
         
         if (pathLengthElement) {
-            // Show actual path length and optimal path length
-            pathLengthElement.textContent = `${this.maze.userPath.length} (${this.maze.userActivity.optimalPathLength})`;
+            // Show unique cells visited and optimal path length
+            // This ensures we don't count the same cell multiple times when backtracking
+            pathLengthElement.textContent = `${this.maze.userActivity.uniqueCellsVisited.size} (${this.maze.userActivity.optimalPathLength})`;
         }
         
         // Calculate score and update star rating
@@ -1454,7 +1455,7 @@ class PathManager {
             activityTracker.classList.add('completed');
         }
         
-        this.debug(`Maze completed! Time: ${formattedTime}, Path: ${this.maze.userPath.length} (${this.maze.userActivity.optimalPathLength}), Score: ${score}`, 'success');
+        this.debug(`Maze completed! Time: ${formattedTime}, Unique cells: ${this.maze.userActivity.uniqueCellsVisited.size}, Path: ${this.maze.userPath.length} (Optimal: ${this.maze.userActivity.optimalPathLength}), Score: ${score}`, 'success');
     }
     
     /**
@@ -1518,7 +1519,7 @@ class PathManager {
     
     /**
      * Calculates the user's performance score
-     * Combines path efficiency, time, and exploration metrics
+     * Combines path efficiency and time metrics
      * 
      * @returns {number} Final score (0-100)
      */
@@ -1530,40 +1531,34 @@ class PathManager {
             return 0;
         }
         
-        // 1. Path efficiency score (0-40 points)
+        // 1. Path efficiency score (0-60 points)
         // Optimal path gets full points, longer paths receive penalties
-        const userPathLength = this.maze.userPath.length;
-        const pathRatio = activity.optimalPathLength / userPathLength;
+        // Use uniqueCellsVisited size instead of raw path length to avoid penalizing backtracking
+        const uniquePathLength = activity.uniqueCellsVisited.size;
+        const pathRatio = activity.optimalPathLength / uniquePathLength;
         
         // Quadratic scaling to penalize inefficient paths more heavily
-        const efficiencyScore = Math.min(40, Math.round(pathRatio * pathRatio * 40));
+        const efficiencyScore = Math.min(60, Math.round(pathRatio * pathRatio * pathRatio * 60));
         
-        // 2. Time efficiency score (0-30 points)
-        // Base time expectation: 2 seconds per optimal path cell
-        const expectedTime = activity.optimalPathLength * 2000; // milliseconds
+        // 2. Time efficiency score (0-40 points)
+        // Base time expectation: 1 seconds per optimal path cell
+        const expectedTime = activity.optimalPathLength * 1000; // milliseconds
         const timeRatio = Math.min(1, expectedTime / activity.duration);
-        const timeScore = Math.round(timeRatio * 30);
-        
-        // 3. Exploration score (0-30 points)
-        // Rewards exploring more of the maze
-        const totalCells = this.maze.width * this.maze.height;
-        const explorationRatio = Math.min(1, activity.uniqueCellsVisited.size / totalCells);
-        const explorationScore = Math.round(explorationRatio * 30);
+        const timeScore = Math.round(timeRatio * 40);
         
         // Calculate total score (max 100)
-        const totalScore = Math.min(100, efficiencyScore + timeScore + explorationScore);
+        const totalScore = Math.min(100, efficiencyScore + timeScore);
         
         // Save score components for reference
         activity.score = totalScore;
         activity.scoreComponents = {
             efficiency: efficiencyScore,
-            time: timeScore,
-            exploration: explorationScore
+            time: timeScore
         };
         
         activity.hardModeCompleted = this.hardModeManager && this.hardModeManager.isEnabled();
         
-        this.debug(`Score calculated: ${totalScore} (Efficiency: ${efficiencyScore}, Time: ${timeScore}, Exploration: ${explorationScore})`, 'event');
+        this.debug(`Score calculated: ${totalScore} (Efficiency: ${efficiencyScore}, Time: ${timeScore})`, 'event');
         
         return totalScore;
     }
@@ -1756,14 +1751,14 @@ class PathManager {
         // Update activity tracking
         const activity = this.maze.userActivity;
         
-        // Start timer on first cell
-        if (this.maze.userPath.length === 1) {
+        // Start timer on first actual movement (second cell)
+        if (this.maze.userPath.length === 2) {
             this.startTimer();
         }
         
         // Update metrics
-        activity.cellsVisited++;
-        activity.uniqueCellsVisited.add(`${cell.row},${cell.col}`);
+        activity.totalCellsVisited++;  // Count all cells, including duplicates
+        activity.uniqueCellsVisited.add(`${cell.row},${cell.col}`);  // Set ensures uniqueness
         
         // Record in path trace for analysis
         activity.pathTrace.push({
