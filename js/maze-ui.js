@@ -48,7 +48,8 @@ const MazeUI = (function() {
     // Get the padding value from the core module
     function getPadding() {
         // Use a fixed padding that doesn't vary with cell size
-        return 10; // Constant padding of 20px
+        // Reduce padding for very small screens
+        return window.innerWidth <= 350 ? 5 : 10; // Smaller padding for narrow screens
     }
     
     // Setup pinch-zoom functionality for cell resizing
@@ -209,11 +210,14 @@ const MazeUI = (function() {
         line2.setAttribute('stroke-width', '2');
         
         // Create invisible hit area for better touch targeting
+        // Make hit area larger on small screens
+        const isSmallScreen = window.innerWidth <= 480;
+        const hitAreaSize = isSmallScreen ? 35 : 25;
         const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        hitArea.setAttribute('x', x - 20);
-        hitArea.setAttribute('y', y - 20);
-        hitArea.setAttribute('width', '25');
-        hitArea.setAttribute('height', '25');
+        hitArea.setAttribute('x', x - hitAreaSize);
+        hitArea.setAttribute('y', y - hitAreaSize);
+        hitArea.setAttribute('width', hitAreaSize.toString());
+        hitArea.setAttribute('height', hitAreaSize.toString());
         hitArea.setAttribute('fill', 'transparent');
         hitArea.setAttribute('stroke', 'transparent');
         
@@ -231,7 +235,11 @@ const MazeUI = (function() {
         // Update dimensions display
         const dimensionsElement = document.getElementById('dimensions');
         if (dimensionsElement) {
-            dimensionsElement.textContent = `${cellSize} × (${width}×${height})`;
+            // Use more compact format for small screens
+            const isSmallScreen = window.innerWidth <= 480;
+            dimensionsElement.textContent = isSmallScreen ? 
+                `${width}×${height} (${cellSize}px)` : 
+                `${cellSize} × (${width}×${height})`;
         }
         
         // We can't update the exact difficulty score without regenerating the maze,
@@ -487,6 +495,9 @@ const MazeUI = (function() {
                     clearInterval(_pathManager.timerInterval);
                     _pathManager.timerInterval = null;
                 }
+                
+                // Call resetActivityUI to properly reset timer and activity tracking
+                _pathManager.resetActivityUI();
             }
             
             // Initialize path manager for the new maze
@@ -533,6 +544,12 @@ const MazeUI = (function() {
             const downloadFullSheetBtn = document.getElementById('downloadFullSheetBtn');
             if (!downloadFullSheetBtn) return;
             
+            // Hide full sheet button on very small screens regardless of maze size
+            if (window.innerWidth <= 350) {
+                downloadFullSheetBtn.style.display = 'none';
+                return;
+            }
+            
             // US Letter size: 8.5 x 11 inches (at 96 DPI)
             const LETTER_WIDTH = 8.5 * 96;  // ~816px
             const LETTER_HEIGHT = 11 * 96;  // ~1056px
@@ -541,7 +558,7 @@ const MazeUI = (function() {
             const MAZE_SPACING = 10;        // Spacing between mazes
             
             // Calculate single maze dimensions with padding
-            const padding = 10; // Same as _padding in the core module
+            const padding = getPadding();
             const singleMazeWidth = width * cellSize + (padding * 2);
             const singleMazeHeight = height * cellSize + (padding * 2);
             
@@ -873,7 +890,10 @@ const MazeUI = (function() {
                 const bottomRightX = rect.width - getPadding();
                 const bottomRightY = rect.height - getPadding();
                 
-                if (Math.abs(x - bottomRightX) <= 10 && Math.abs(y - bottomRightY) <= 10) {
+                // Use larger hit area on small screens
+                const cursorHitSize = window.innerWidth <= 350 ? 15 : 10;
+                
+                if (Math.abs(x - bottomRightX) <= cursorHitSize && Math.abs(y - bottomRightY) <= cursorHitSize) {
                     svgElement.style.cursor = 'grab';
                 } else {
                     svgElement.style.cursor = 'default';
@@ -888,7 +908,10 @@ const MazeUI = (function() {
                 const bottomRightX = rect.width - getPadding();
                 const bottomRightY = rect.height - getPadding();
                 
-                if (Math.abs(x - bottomRightX) <= 10 && Math.abs(y - bottomRightY) <= 10) {
+                // Use larger target area on small screens
+                const targetSize = window.innerWidth <= 350 ? 15 : 10;
+                
+                if (Math.abs(x - bottomRightX) <= targetSize && Math.abs(y - bottomRightY) <= targetSize) {
                     _isDragging = true;
                     _startX = e.clientX;
                     _startY = e.clientY;
@@ -917,7 +940,10 @@ const MazeUI = (function() {
                 const bottomRightX = rect.width - getPadding();
                 const bottomRightY = rect.height - getPadding();
                 
-                if (Math.abs(x - bottomRightX) <= 20 && Math.abs(y - bottomRightY) <= 20) {
+                // Use larger touch target area on small screens
+                const touchTargetSize = window.innerWidth <= 350 ? 30 : 20;
+                
+                if (Math.abs(x - bottomRightX) <= touchTargetSize && Math.abs(y - bottomRightY) <= touchTargetSize) {
                     // Prevent scrolling when resizing
                     e.preventDefault();
                     
@@ -1136,57 +1162,63 @@ const MazeUI = (function() {
         const header = document.querySelector('header');
         const headerHeight = header ? header.offsetHeight : 0;
         
-        // Calculate available space (we need to account for padding, controls, etc.)
-        // For simplicity, estimate that 85% of viewport width is available for the maze
-        // and subtract header height + estimated space for controls (80px) from height
-        const availableWidth = viewportWidth * 0.8 - 20;
+        // Calculate available space (accounting for smaller screens)
+        // For very small screens (350px), use 95% of width
+        const widthMultiplier = viewportWidth <= 350 ? 0.95 : 
+                               viewportWidth < 480 ? 0.9 : 0.8;
+        const availableWidth = viewportWidth * widthMultiplier - 20;
         const availableHeight = viewportHeight * 0.8 - headerHeight - 100;
         
-        // Start with preferred cell size
-        let cellSize = 40;
+        // Start with preferred cell size, but adjust for screen size
+        let cellSize;
         
-        // Adjust cell size based on viewport width
-        if (viewportWidth < 480) {
-            // For very small screens (mobile phones)
-            cellSize = Math.max(15, Math.min(cellSize, availableWidth / 12));
+        // Adjust cell size based on viewport width - smaller sizes for narrow screens
+        if (viewportWidth <= 350) {
+            // For very small screens (narrow phones)
+            cellSize = Math.max(10, Math.min(25, availableWidth / 10));
+        } else if (viewportWidth < 480) {
+            // For small screens (mobile phones)
+            cellSize = Math.max(12, Math.min(30, availableWidth / 12));
         } else if (viewportWidth < 768) {
-            // For small screens (tablets)
-            cellSize = Math.max(12, Math.min(cellSize, availableWidth / 15));
+            // For medium screens (tablets)
+            cellSize = Math.max(15, Math.min(35, availableWidth / 15));
         } else {
             // For larger screens
-            cellSize = Math.max(10, Math.min(cellSize, availableWidth / 20));
+            cellSize = Math.max(20, Math.min(40, availableWidth / 20));
         }
         
         // Round cell size to nearest whole pixel
         cellSize = Math.floor(cellSize);
         
         // Calculate maze dimensions based on cell size
-        // Account for 1 cell of padding on each side (2 cells total)
         const padding = getPadding();
-        const widthInCells = Math.max(10, Math.floor((availableWidth - (padding * 2)) / cellSize));
-        const heightInCells = Math.max(10, Math.floor((availableHeight - (padding * 2)) / cellSize));
+        // Use smaller padding for very small screens
+        const effectivePadding = viewportWidth <= 350 ? padding / 2 : padding;
+        const widthInCells = Math.max(8, Math.floor((availableWidth - (effectivePadding * 2)) / cellSize));
+        const heightInCells = Math.max(8, Math.floor((availableHeight - (effectivePadding * 2)) / cellSize));
         
         // Limit dimensions to reasonable maximums
-        const maxWidth = 50;
-        const maxHeight = 50;
+        // Use smaller max dimensions for small screens
+        const maxWidth = viewportWidth < 480 ? 30 : 50;
+        const maxHeight = viewportWidth < 480 ? 30 : 50;
         const width = Math.min(widthInCells, maxWidth);
         const height = Math.min(heightInCells, maxHeight);
         
-        // Target ~400 cells total area
-        const totalCells = width * height;
-        const targetCells = 400;
-        const deviation = 0.1; // Allow 20% deviation from target
+        // Target a smaller cell count for mobile devices
+        const targetCells = viewportWidth < 480 ? 200 : 400;
+        const deviation = 0.2; // Allow 20% deviation from target
         const minCells = targetCells * (1 - deviation);
         const maxCells = targetCells * (1 + deviation);
         
-        // If we're outside the acceptable range on large screens, adjust dimensions
-        if ((totalCells < minCells || totalCells > maxCells) && viewportWidth >= 1024) {
+        // If total cells are outside acceptable range, adjust dimensions
+        const totalCells = width * height;
+        if (totalCells < minCells || totalCells > maxCells) {
             // Calculate aspect ratio
             const aspect = width / height;
             
             // Calculate new dimensions maintaining aspect ratio
-            const newWidth = Math.max(10, Math.floor(Math.sqrt(targetCells * aspect)));
-            const newHeight = Math.max(10, Math.floor(Math.sqrt(targetCells / aspect)));
+            const newWidth = Math.max(8, Math.floor(Math.sqrt(targetCells * aspect)));
+            const newHeight = Math.max(8, Math.floor(Math.sqrt(targetCells / aspect)));
             
             return {
                 width: newWidth,

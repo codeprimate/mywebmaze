@@ -46,7 +46,7 @@
 
 /* Base styles */
 html, body {
-  min-width: 450px; /* Establish minimum width */
+  /* Remove minimum width restriction */
   overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
@@ -466,7 +466,7 @@ input:focus + .slider {
 
 .pinch-zoom-indicator.active {
   opacity: 1;
-} 
+}
 
 /* Difficulty and dimension display */
 .difficulty-score {
@@ -749,12 +749,7 @@ input:focus + .slider {
     min-width: auto;
     padding: var(--spacing-xs) var(--spacing-sm);
   }
-  
-  /* Hide "Multiple Mazes" text on very small screens */
-  #downloadFullSheetBtn span {
-    display: none;
-  }
-  
+
   #downloadFullSheetBtn::after {
     content: "PDF";
     margin-left: var(--spacing-xs);
@@ -939,4 +934,296 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   white-space: nowrap;
   flex-grow: 1;
   min-width: 0;
+}
+
+/* Add new media queries for small screens */
+@media screen and (max-width: 480px) {
+  /* Reduce body padding */
+  body {
+    padding: var(--spacing-md);
+    font-size: 1.2em;
+  }
+  
+  /* Keep download buttons inline but modify other controls */
+  .controls {
+    gap: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+  }
+  
+  /* Special handling for download buttons section to ensure they stay inline */
+  .controls[aria-label="Download options"] {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  /* Make other control sections stack vertically */
+  .controls:not([aria-label="Download options"]) {
+    flex-direction: column;
+  }
+  
+  /* Make buttons more compact */
+  button {
+    padding: 6px 10px;
+    min-width: auto;
+    min-height: 36px;
+    font-size: 0.9em;
+  }
+  
+  /* Make download buttons narrower but still visible */
+  #downloadBtn, #downloadPngBtn, #downloadFullSheetBtn {
+    min-width: auto;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    margin: 0 var(--spacing-xs);
+  }
+  
+  /* Make input fields full width */
+  input[type="number"] {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  /* Reduce padding/margins for maze container */
+  .maze-container {
+    padding: 5px;
+  }
+  
+  /* Activity tracker improvements */
+  #maze-activity-tracker {
+    max-width: 90%;
+    width: 90%;
+    padding: var(--spacing-md);
+    border-width: 2px;
+    margin: var(--spacing-md) auto;
+  }
+  
+  .solving-view #maze-status {
+    font-size: 1.2em;
+  }
+  
+  .solving-view #maze-timer {
+    font-size: 1.8em;
+  }
+  
+  #maze-completion-time, 
+  #maze-path-length {
+    font-size: 1.8em;
+  }
+  
+  .maze-stat {
+    font-size: 1.1em;
+  }
+  
+  .star-rating {
+    gap: var(--spacing-md);
+  }
+  
+  .star {
+    font-size: 1.6em;
+  }
+  
+  /* Make instructions more compact */
+  .instructions {
+    font-size: 0.9em;
+    margin-top: var(--spacing-md);
+  }
+  
+  .instructions h2 {
+    font-size: 1.6em;
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .instructions ul {
+    padding-left: 20px;
+  }
+  
+  .instructions li {
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  /* Footer adjustments */
+  .footer {
+    font-size: 0.8em;
+    margin-top: var(--spacing-lg);
+  }
+  
+  /* Update pinch zoom indicator for small screens */
+  .pinch-zoom-indicator {
+    font-size: 0.9em;
+    padding: 6px 12px;
+    bottom: 10px;
+  }
+}
+
+@media screen and (max-width: 350px) {
+  /* Hide optional UI elements, but NOT the download buttons */
+  .optional-control:not(#downloadFullSheetBtn) {
+    display: none;
+  }
+  
+  /* Further reduce spacing */
+  body {
+    padding: var(--spacing-sm);
+    font-size: 1.1em;
+  }
+  
+  /* Make content edge-to-edge */
+  .content-wrapper {
+    padding: 0 var(--spacing-xs);
+  }
+  
+  /* Keep download buttons inline with extremely compact styling */
+  .controls[aria-label="Download options"] {
+    gap: var(--spacing-xs);
+  }
+  
+  /* Ensure download buttons stay small but usable */
+  #downloadBtn, #downloadPngBtn, #downloadFullSheetBtn {
+    min-width: auto;
+    padding: 3px 6px;
+    margin: 0 2px;
+  }
+  
+  /* Further reduce button sizes */
+  button {
+    padding: 4px 8px;
+    font-size: 0.8em;
+    min-height: 32px;
+  }
+  
+  /* Make download button text consistently icon-only for all three buttons */
+  #downloadBtn span, 
+  #downloadPngBtn span,
+  #downloadFullSheetBtn span {
+    display: none;
+  }
+  
+  /* Add text indicators after the icons */
+  #downloadBtn::after {
+    content: "SVG";
+    font-size: 0.8em;
+  }
+  
+  #downloadPngBtn::after {
+    content: "PNG";
+    font-size: 0.8em;
+  }
+  
+  #downloadFullSheetBtn::after {
+    content: "PDF";
+    font-size: 0.8em;
+  }
+  
+  /* Compact the seed input area */
+  .seed-input {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  /* Simplify instructions */
+  .instructions h2 {
+    font-size: 1.4em;
+  }
+  
+  .instructions ul {
+    padding-left: 15px;
+  }
+  
+  /* Update pinch zoom indicator for small screens */
+  .pinch-zoom-indicator {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    bottom: 5px;
+  }
+}
+
+/* Increase maze info size for small screens */
+@media screen and (max-width: 480px) {
+  .dimensions-display {
+    font-size: 1.2em;
+    margin: var(--spacing-md) auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-color: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+  
+  .difficulty-score {
+    display: inline;
+    margin-left: var(--spacing-xs);
+    font-size: 1.1em;
+  }
+}
+
+@media screen and (max-width: 350px) {
+  .dimensions-display {
+    font-size: 1.3em;
+    padding: 0;
+    line-height: 1.3;
+  }
+}
+
+/* Hard mode toggle for small screens */
+@media screen and (max-width: 480px) {
+  .hard-mode-toggle {
+    margin: var(--spacing-md) auto;
+    padding: 0;
+    background-color: transparent;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  
+  .hard-mode-toggle label[for="hardModeToggle"] {
+    font-size: 1.1em;
+    font-weight: bold;
+  }
+  
+  /* Activity tracker improvements */
+  #maze-activity-tracker {
+    max-width: 90%;
+    width: 90%;
+    padding: var(--spacing-md);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-width: 2px;
+    margin: var(--spacing-md) auto;
+  }
+  
+  .solving-view #maze-status {
+    font-size: 1.2em;
+  }
+  
+  .solving-view #maze-timer {
+    font-size: 1.8em;
+  }
+  
+  #maze-completion-time, 
+  #maze-path-length {
+    font-size: 1.8em;
+  }
+  
+  .maze-stat {
+    font-size: 1.1em;
+  }
+  
+  .star-rating {
+    gap: var(--spacing-md);
+  }
+  
+  .star {
+    font-size: 1.6em;
+  }
+}
+
+@media screen and (max-width: 350px) {
+  .hard-mode-toggle {
+    padding: 0;
+  }
+  
+  /* Activity tracker improvements for very small screens */
+  #maze-activity-tracker {
+    width: 95%;
+    max-width: 95%;
+  }
 }
