@@ -1531,10 +1531,12 @@ class PathManager {
             return 0;
         }
         
+        // Get unique path length
+        const uniquePathLength = activity.uniqueCellsVisited.size;
+        
         // 1. Path efficiency score (0-60 points)
         // Optimal path gets full points, longer paths receive penalties
         // Use uniqueCellsVisited size instead of raw path length to avoid penalizing backtracking
-        const uniquePathLength = activity.uniqueCellsVisited.size;
         const pathRatio = activity.optimalPathLength / uniquePathLength;
         
         // Quadratic scaling to penalize inefficient paths more heavily
@@ -1547,7 +1549,13 @@ class PathManager {
         const timeScore = Math.round(timeRatio * 40);
         
         // Calculate total score (max 100)
-        const totalScore = Math.min(100, efficiencyScore + timeScore);
+        let totalScore = Math.min(100, efficiencyScore + timeScore);
+        
+        // If score is 100 or more AND path is longer than optimal, cap at 80
+        if (totalScore >= 100 && uniquePathLength > activity.optimalPathLength) {
+            this.debug(`Score capped at 4: path longer than optimal (${uniquePathLength} > ${activity.optimalPathLength})`, 'warning');
+            totalScore = 80;
+        }
         
         // Save score components for reference
         activity.score = totalScore;
