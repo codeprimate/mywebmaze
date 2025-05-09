@@ -1154,84 +1154,106 @@ const MazeUI = (function() {
     
     // Calculate optimal maze dimensions based on viewport size
     function calculateOptimalDimensions() {
-        // Get viewport dimensions
+        // Define screen size breakpoints
+        const SCREEN = {
+            VERY_SMALL: 350,
+            SMALL: 480,
+            MEDIUM: 768
+        };
+        
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Measure header height and content area
+        // Measure header height
         const header = document.querySelector('header');
         const headerHeight = header ? header.offsetHeight : 0;
         
-        // Calculate available space (accounting for smaller screens)
-        // For very small screens (350px), use 95% of width
-        const widthMultiplier = viewportWidth <= 350 ? 0.95 : 
-                               viewportWidth < 480 ? 0.9 : 0.8;
-        const availableWidth = viewportWidth * widthMultiplier - 20;
+        // Define configuration values based on screen size
+        const config = {
+            // Width multiplier decreases with larger screens
+            widthMultiplier: viewportWidth <= SCREEN.VERY_SMALL ? 0.95 : 
+                            viewportWidth < SCREEN.SMALL ? 0.9 : 0.8,
+            
+            // Minimum cell sizes increase with screen size
+            minCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 10 : 
+                        viewportWidth < SCREEN.SMALL ? 12 :
+                        viewportWidth < SCREEN.MEDIUM ? 15 : 20,
+            
+            // Maximum cell sizes increase with screen size
+            maxCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 25 : 
+                        viewportWidth < SCREEN.SMALL ? 30 :
+                        viewportWidth < SCREEN.MEDIUM ? 35 : 40,
+            
+            // Cell size divisor for different screen sizes
+            cellSizeDivisor: viewportWidth <= SCREEN.VERY_SMALL ? 10 : 
+                            viewportWidth < SCREEN.SMALL ? 12 :
+                            viewportWidth < SCREEN.MEDIUM ? 15 : 20,
+            
+            // Maximum dimensions are smaller for mobile devices
+            maxWidth: viewportWidth < SCREEN.SMALL ? 30 : 50,
+            maxHeight: viewportWidth < SCREEN.SMALL ? 30 : 50,
+            
+            // Target fewer cells on smaller devices
+            targetCellCount: viewportWidth < SCREEN.SMALL ? 200 : 400,
+            cellCountDeviation: 0.2, // Allow 20% deviation from target
+            
+            // Minimum dimension in cells
+            minDimension: 8
+        };
+        
+        // Calculate available space
+        const availableWidth = viewportWidth * config.widthMultiplier - 20;
         const availableHeight = viewportHeight * 0.8 - headerHeight - 100;
         
-        // Start with preferred cell size, but adjust for screen size
-        let cellSize;
+        // Calculate optimal cell size
+        const cellSize = Math.floor(
+            Math.max(
+                config.minCellSize, 
+                Math.min(config.maxCellSize, availableWidth / config.cellSizeDivisor)
+            )
+        );
         
-        // Adjust cell size based on viewport width - smaller sizes for narrow screens
-        if (viewportWidth <= 350) {
-            // For very small screens (narrow phones)
-            cellSize = Math.max(10, Math.min(25, availableWidth / 10));
-        } else if (viewportWidth < 480) {
-            // For small screens (mobile phones)
-            cellSize = Math.max(12, Math.min(30, availableWidth / 12));
-        } else if (viewportWidth < 768) {
-            // For medium screens (tablets)
-            cellSize = Math.max(15, Math.min(35, availableWidth / 15));
-        } else {
-            // For larger screens
-            cellSize = Math.max(20, Math.min(40, availableWidth / 20));
-        }
-        
-        // Round cell size to nearest whole pixel
-        cellSize = Math.floor(cellSize);
-        
-        // Calculate maze dimensions based on cell size
+        // Get padding from existing function
         const padding = getPadding();
-        // Use smaller padding for very small screens
-        const effectivePadding = viewportWidth <= 350 ? padding / 2 : padding;
-        const widthInCells = Math.max(8, Math.floor((availableWidth - (effectivePadding * 2)) / cellSize));
-        const heightInCells = Math.max(8, Math.floor((availableHeight - (effectivePadding * 2)) / cellSize));
+        // Adjust padding for small screens
+        const effectivePadding = viewportWidth <= SCREEN.VERY_SMALL ? padding / 2 : padding;
         
-        // Limit dimensions to reasonable maximums
-        // Use smaller max dimensions for small screens
-        const maxWidth = viewportWidth < 480 ? 30 : 50;
-        const maxHeight = viewportWidth < 480 ? 30 : 50;
-        const width = Math.min(widthInCells, maxWidth);
-        const height = Math.min(heightInCells, maxHeight);
+        // Calculate maze dimensions in cells
+        const widthInCells = Math.max(
+            config.minDimension, 
+            Math.floor((availableWidth - (effectivePadding * 2)) / cellSize)
+        );
         
-        // Target a smaller cell count for mobile devices
-        const targetCells = viewportWidth < 480 ? 200 : 400;
-        const deviation = 0.2; // Allow 20% deviation from target
-        const minCells = targetCells * (1 - deviation);
-        const maxCells = targetCells * (1 + deviation);
+        const heightInCells = Math.max(
+            config.minDimension, 
+            Math.floor((availableHeight - (effectivePadding * 2)) / cellSize)
+        );
         
-        // If total cells are outside acceptable range, adjust dimensions
+        // Limit dimensions to configured maximums
+        const width = Math.min(widthInCells, config.maxWidth);
+        const height = Math.min(heightInCells, config.maxHeight);
+        
+        // Check if total cells are within desired range
         const totalCells = width * height;
+        const minCells = config.targetCellCount * (1 - config.cellCountDeviation);
+        const maxCells = config.targetCellCount * (1 + config.cellCountDeviation);
+        
+        // If outside acceptable range, adjust dimensions while maintaining aspect ratio
         if (totalCells < minCells || totalCells > maxCells) {
-            // Calculate aspect ratio
             const aspect = width / height;
+            const newWidth = Math.max(
+                config.minDimension, 
+                Math.floor(Math.sqrt(config.targetCellCount * aspect))
+            );
+            const newHeight = Math.max(
+                config.minDimension, 
+                Math.floor(Math.sqrt(config.targetCellCount / aspect))
+            );
             
-            // Calculate new dimensions maintaining aspect ratio
-            const newWidth = Math.max(8, Math.floor(Math.sqrt(targetCells * aspect)));
-            const newHeight = Math.max(8, Math.floor(Math.sqrt(targetCells / aspect)));
-            
-            return {
-                width: newWidth,
-                height: newHeight,
-                cellSize: cellSize
-            };
+            return { width: newWidth, height: newHeight, cellSize };
         }
         
-        return {
-            width: width,
-            height: height,
-            cellSize: cellSize
-        };
+        return { width, height, cellSize };
     }
     
     function init() {
