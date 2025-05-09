@@ -998,20 +998,20 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   }
   
   .solving-view #maze-status {
-    font-size: 1.2em;
+    font-size: 1em;
   }
   
   .solving-view #maze-timer {
-    font-size: 1.8em;
+    font-size: 1.4em;
   }
   
   #maze-completion-time, 
   #maze-path-length {
-    font-size: 1.8em;
+    font-size: 1.4em;
   }
   
   .maze-stat {
-    font-size: 1.1em;
+    font-size: 1em;
   }
   
   .star-rating {
@@ -1019,7 +1019,7 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   }
   
   .star {
-    font-size: 1.6em;
+    font-size: 1.4em;
   }
   
   /* Make instructions more compact */
@@ -1191,20 +1191,20 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   }
   
   .solving-view #maze-status {
-    font-size: 1.2em;
+    font-size: 1em;
   }
   
   .solving-view #maze-timer {
-    font-size: 1.8em;
+    font-size: 1.4em;
   }
   
   #maze-completion-time, 
   #maze-path-length {
-    font-size: 1.8em;
+    font-size: 1.4em;
   }
   
   .maze-stat {
-    font-size: 1.1em;
+    font-size: 1em;
   }
   
   .star-rating {
@@ -1212,7 +1212,7 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   }
   
   .star {
-    font-size: 1.6em;
+    font-size: 1.4em;
   }
 }
 
@@ -1225,5 +1225,26 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   #maze-activity-tracker {
     width: 95%;
     max-width: 95%;
+  }
+  
+  .solving-view #maze-status {
+    font-size: 0.9em;
+  }
+  
+  .solving-view #maze-timer {
+    font-size: 1.2em;
+  }
+  
+  #maze-completion-time, 
+  #maze-path-length {
+    font-size: 1.2em;
+  }
+  
+  .results-view {
+    font-size: 1em;
+  }
+  
+  .star {
+    font-size: 1.2em;
   }
 }
