@@ -414,7 +414,7 @@ class PathManager {
         
         this.debug(`Checking linear path between (${startCell.row},${startCell.col}) and (${endCell.row},${endCell.col})`, 'info');
         
-        // Check all cells between start and end for walls
+        // Check all cells between start and end for walls and visibility in hard mode
         if (isHorizontal) {
             const row = startCell.row;
             const start = Math.min(startCell.col, endCell.col);
@@ -424,6 +424,14 @@ class PathManager {
             for (let col = start; col < end; col++) {
                 const currentCell = this.maze.grid[row][col];
                 const nextCell = this.maze.grid[row][col + 1];
+                
+                // Check visibility in hard mode
+                if (this.hardModeManager && this.hardModeManager.isEnabled()) {
+                    if (!this.hardModeManager.isCellVisible(currentCell) || !this.hardModeManager.isCellVisible(nextCell)) {
+                        this.debug(`Path contains cells outside visible area in hard mode - early termination`, 'warning');
+                        return false;
+                    }
+                }
                 
                 // Early termination - stop checking as soon as we find a wall
                 if (this.hasWallBetween(currentCell, nextCell)) {
@@ -440,6 +448,14 @@ class PathManager {
             for (let row = start; row < end; row++) {
                 const currentCell = this.maze.grid[row][col];
                 const nextCell = this.maze.grid[row + 1][col];
+                
+                // Check visibility in hard mode
+                if (this.hardModeManager && this.hardModeManager.isEnabled()) {
+                    if (!this.hardModeManager.isCellVisible(currentCell) || !this.hardModeManager.isCellVisible(nextCell)) {
+                        this.debug(`Path contains cells outside visible area in hard mode - early termination`, 'warning');
+                        return false;
+                    }
+                }
                 
                 // Early termination - stop checking as soon as we find a wall
                 if (this.hasWallBetween(currentCell, nextCell)) {
@@ -616,6 +632,16 @@ class PathManager {
         }
         
         this.debug(`Found ${cells.length} cells to add in linear path`, 'info');
+        
+        // If hard mode is enabled, check that all cells in the path are visible
+        if (this.hardModeManager && this.hardModeManager.isEnabled()) {
+            for (const cell of cells) {
+                if (!this.hardModeManager.isCellVisible(cell)) {
+                    this.debug(`Linear path rejected - contains cells outside visible area in hard mode`, 'warning');
+                    return false;
+                }
+            }
+        }
         
         // Add each cell to the path in sequence
         let success = true;
@@ -933,6 +959,14 @@ class PathManager {
                 return;
             }
             
+            // If hard mode is enabled, check if the cell is visible before allowing interaction
+            if (this.hardModeManager && this.hardModeManager.isEnabled()) {
+                if (!this.hardModeManager.isCellVisible(cell)) {
+                    this.debug(`Click ignored - cell is outside visible area in hard mode`, 'warning');
+                    return;
+                }
+            }
+            
             // Special case for when path is empty
             if (this.maze.userPath.length === 0) {
                 // Only start the path if user clicks on the entrance cell
@@ -1003,6 +1037,14 @@ class PathManager {
             if (!cell || cell === this.lastCell) return;
             
             this.debug(`${e.type} to cell (${cell.row},${cell.col})`, 'event');
+            
+            // If hard mode is enabled, check if the cell is visible before allowing interaction
+            if (this.hardModeManager && this.hardModeManager.isEnabled()) {
+                if (!this.hardModeManager.isCellVisible(cell)) {
+                    this.debug(`Move ignored - cell is outside visible area in hard mode`, 'warning');
+                    return;
+                }
+            }
             
             // If we're dragging through a linear path, handle the entire path
             const currentEnd = this.maze.grid[this.maze.currentPathEnd.row][this.maze.currentPathEnd.col];

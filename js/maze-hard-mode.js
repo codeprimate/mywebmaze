@@ -533,4 +533,44 @@ class HardModeManager {
         // Remove overlay
         this._removeOverlay();
     }
+    
+    // Check if a cell is visible in hard mode
+    isCellVisible(cell) {
+        // If hard mode is not enabled, all cells are visible
+        if (!this.enabled) {
+            return true;
+        }
+        
+        // If we don't have required data, assume it's visible
+        if (!this.maze || !cell) {
+            return true;
+        }
+        
+        // Get current path end position (anchor point)
+        let anchorRow, anchorCol;
+        
+        if (this.maze.userPath && this.maze.userPath.length > 0) {
+            // Use the last cell in the path as the anchor
+            const lastCell = this.maze.userPath[this.maze.userPath.length - 1];
+            anchorRow = lastCell.row;
+            anchorCol = lastCell.col;
+        } else if (this.maze.entrance) {
+            // If no path yet, use the entrance
+            anchorRow = this.maze.entrance.row;
+            anchorCol = this.maze.entrance.col;
+        } else {
+            return true; // No reference point, assume visible
+        }
+        
+        // Calculate the distance from the cell to the anchor (in cells)
+        const rowDistance = Math.abs(cell.row - anchorRow);
+        const colDistance = Math.abs(cell.col - anchorCol);
+        
+        // Visibility radius - number of cells visible in each direction from the anchor
+        // This should match the actual visual radius used in the overlay
+        const visibilityRadius = 3; // 2 cells in each direction (5x5 grid centered on anchor)
+        
+        // Check if the cell is within the visibility radius
+        return (rowDistance <= visibilityRadius && colDistance <= visibilityRadius);
+    }
 } 
