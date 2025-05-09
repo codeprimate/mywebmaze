@@ -768,15 +768,36 @@ input:focus + .slider {
     opacity: 0.8;
 }
 
+/* Container for controls */
+.maze-controls-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin: var(--spacing-md) auto;
+  width: 100%;
+  max-width: 560px;
+}
+
+.maze-controls-container .switch {
+  margin-right: var(--spacing-sm);
+}
+
+@media (min-width: 481px) {
+  .maze-controls-container {
+    gap: var(--spacing-lg);
+  }
+}
+
 /* Hard mode toggle */
 .hard-mode-toggle {
   display: flex;
   align-items: center;
   gap: 0;
-  margin: var(--spacing-md) 0;
+  margin: 0;
   justify-content: center;
   position: relative;
-  flex-wrap: wrap;
 }
 
 .hard-mode-toggle::before {
@@ -1168,16 +1189,21 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
 /* Hard mode toggle for small screens */
 @media screen and (max-width: 480px) {
   .hard-mode-toggle {
-    margin: var(--spacing-md) auto;
     padding: 0;
     background-color: transparent;
     border-radius: 0;
     box-shadow: none;
   }
   
-  .hard-mode-toggle label[for="hardModeToggle"] {
+  .hard-mode-toggle label[for="hardModeToggle"],
+  .tilt-controls-toggle label[for="tiltControlsToggle"] {
     font-size: 1.1em;
     font-weight: bold;
+  }
+  
+  .maze-controls-container {
+    width: 100%;
+    justify-content: space-around;
   }
   
   /* Activity tracker improvements */
@@ -1217,8 +1243,12 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
 }
 
 @media screen and (max-width: 350px) {
-  .hard-mode-toggle {
+  .hard-mode-toggle, .tilt-controls-toggle {
     padding: 0;
+  }
+  
+  .maze-controls-container {
+    gap: var(--spacing-sm);
   }
   
   /* Activity tracker improvements for very small screens */
@@ -1254,10 +1284,9 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   display: none; /* Hidden by default, will be shown via JS only on mobile devices */
   align-items: center;
   gap: 0;
-  margin: var(--spacing-md) 0;
+  margin: 0;
   justify-content: center;
   position: relative;
-  flex-wrap: wrap;
 }
 
 .tilt-controls-toggle::before {
@@ -1298,6 +1327,6 @@ input#tiltControlsToggle:checked ~ label[for="tiltControlsToggle"] {
 @media (max-width: 480px) {
   .hard-mode-toggle, .tilt-controls-toggle {
     display: inline-flex; /* This will only affect tilt-controls-toggle when it's already visible via JS */
-    margin: var(--spacing-md) var(--spacing-sm);
+    margin: 0;
   }
 }

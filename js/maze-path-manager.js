@@ -1778,6 +1778,11 @@ class PathManager {
                 this.debug('Mobile device with orientation support detected, showing tilt controls', 'info');
             } else {
                 tiltToggleContainer.style.display = 'none'; // Hide on desktop or devices without support
+                // Also make sure the container doesn't take up space if empty
+                const controlsContainer = document.querySelector('.maze-controls-container');
+                if (controlsContainer && !document.querySelector('.hard-mode-toggle')) {
+                    controlsContainer.style.display = 'none';
+                }
                 this.debug('Desktop or device without orientation support detected, hiding tilt controls', 'info');
             }
         }
@@ -1798,15 +1803,21 @@ class PathManager {
         
         this.debug('Setting up tilt controls for mobile device', 'info');
         
+        // Load saved tilt controls preference
+        this._loadTiltControlsState();
+        
         // Check if tilt controls are enabled via the toggle
         const tiltToggle = document.getElementById('tiltControlsToggle');
         if (tiltToggle) {
-            // Set initial state based on toggle
-            this.tiltConfig.enabled = tiltToggle.checked;
+            // Set toggle state based on saved preference
+            tiltToggle.checked = this.tiltConfig.enabled;
             
             // Add event listener for toggle changes
             tiltToggle.addEventListener('change', (e) => {
                 this.tiltConfig.enabled = e.target.checked;
+                // Save the preference when changed
+                this._saveTiltControlsState();
+                
                 if (this.tiltConfig.enabled) {
                     this.attachTiltEventListener();
                     this.debug('Tilt controls enabled via toggle', 'success');
@@ -1851,21 +1862,25 @@ class PathManager {
                 permissionContainer.style.left = '50%';
                 permissionContainer.style.transform = 'translate(-50%, -50%)';
                 permissionContainer.style.padding = '20px';
-                permissionContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                permissionContainer.style.width = '280px'; // Set a fixed width for consistency
+                permissionContainer.style.maxWidth = '90%'; // Ensure it works on small screens
+                permissionContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'; // Slightly more opaque
                 permissionContainer.style.border = '2px solid #4285F4';
                 permissionContainer.style.borderRadius = '8px';
-                permissionContainer.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                permissionContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; // Enhanced shadow
                 permissionContainer.style.zIndex = '10000';
                 permissionContainer.style.textAlign = 'center';
                 permissionContainer.innerHTML = `
-                    <p style="margin-top:0;font-weight:bold;">Enable Tilt Controls</p>
-                    <p style="margin-bottom:15px;">This device requires permission to access orientation sensors.</p>
-                    <button id="tiltPermissionBtn" style="padding:10px 20px;background:#4285F4;color:white;border:none;border-radius:4px;cursor:pointer;">
-                        Grant Permission
-                    </button>
-                    <button id="tiltPermissionCancelBtn" style="padding:10px 20px;background:#ccc;color:#333;border:none;border-radius:4px;cursor:pointer;margin-left:10px;">
-                        Cancel
-                    </button>
+                    <p style="margin-top:0;font-weight:bold;font-size:1.2em;">Enable Tilt Controls</p>
+                    <p style="margin-bottom:20px;">This device requires permission to access orientation sensors.</p>
+                    <div style="display:flex;justify-content:center;gap:15px;">
+                        <button id="tiltPermissionBtn" style="padding:10px 15px;background:#4285F4;color:white;border:none;border-radius:4px;cursor:pointer;flex:1;max-width:130px;font-weight:bold;">
+                            Grant Permission
+                        </button>
+                        <button id="tiltPermissionCancelBtn" style="padding:10px 15px;background:#f0f0f0;color:#333;border:1px solid #ccc;border-radius:4px;cursor:pointer;flex:1;max-width:130px;">
+                            Cancel
+                        </button>
+                    </div>
                 `;
                 document.body.appendChild(permissionContainer);
                 
@@ -1875,22 +1890,34 @@ class PathManager {
                         .then(permissionState => {
                             if (permissionState === 'granted') {
                                 this.debug('DeviceOrientation permission granted', 'success');
-                                // Only enable if toggle is on
-                                if (tiltToggle && tiltToggle.checked) {
-                                    this.attachTiltEventListener();
+                                // Only enable if toggle is checked based on saved preference
+                                if (tiltToggle) {
+                                    // Don't change the toggle checked state here
+                                    // Just enable tilt controls if the toggle is already checked
+                                    if (tiltToggle.checked) {
+                                        this.attachTiltEventListener();
+                                    }
                                 }
                                 document.body.removeChild(permissionContainer);
                             } else {
                                 this.debug('DeviceOrientation permission denied', 'error');
                                 this.tiltConfig.enabled = false;
-                                if (tiltToggle) tiltToggle.checked = false;
+                                if (tiltToggle) {
+                                    tiltToggle.checked = false;
+                                    // Save the state when it changes due to permission denial
+                                    this._saveTiltControlsState();
+                                }
                                 document.body.removeChild(permissionContainer);
                             }
                         })
                         .catch(error => {
                             this.debug(`Error requesting permission: ${error}`, 'error');
                             this.tiltConfig.enabled = false;
-                            if (tiltToggle) tiltToggle.checked = false;
+                            if (tiltToggle) {
+                                tiltToggle.checked = false;
+                                // Save the state when it changes due to permission error
+                                this._saveTiltControlsState();
+                            }
                             document.body.removeChild(permissionContainer);
                         });
                 });
@@ -1899,7 +1926,11 @@ class PathManager {
                 document.getElementById('tiltPermissionCancelBtn').addEventListener('click', () => {
                     this.debug('Permission request canceled by user', 'info');
                     this.tiltConfig.enabled = false;
-                    if (tiltToggle) tiltToggle.checked = false;
+                    if (tiltToggle) {
+                        tiltToggle.checked = false;
+                        // Save the state when it changes due to permission cancellation
+                        this._saveTiltControlsState();
+                    }
                     document.body.removeChild(permissionContainer);
                 });
             }
@@ -1912,6 +1943,33 @@ class PathManager {
                 this.attachTiltEventListener();
             }
         }
+    }
+    
+    /**
+     * Loads tilt controls preference from localStorage on initialization
+     * Defaults to enabled (true) if no saved preference exists
+     * @private
+     */
+    _loadTiltControlsState() {
+        const savedTiltControls = localStorage.getItem('tiltControlsEnabled');
+        if (savedTiltControls !== null) {
+            this.tiltConfig.enabled = savedTiltControls === 'true';
+            this.debug(`Loaded saved tilt controls preference: ${this.tiltConfig.enabled}`, 'info');
+        } else {
+            // Default to enabled when no saved preference exists
+            this.tiltConfig.enabled = true;
+            this.debug('No saved tilt controls preference found, using default (enabled)', 'info');
+        }
+    }
+    
+    /**
+     * Persists current tilt controls state to localStorage
+     * Called whenever tilt controls are toggled
+     * @private
+     */
+    _saveTiltControlsState() {
+        localStorage.setItem('tiltControlsEnabled', this.tiltConfig.enabled.toString());
+        this.debug(`Saved tilt controls preference: ${this.tiltConfig.enabled}`, 'info');
     }
     
     /**
