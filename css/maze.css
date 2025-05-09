@@ -53,7 +53,7 @@ html, body {
 body {
   font-family: var(--font-primary);
   margin: 0;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-lg);
   line-height: 1.6;
   color: var(--color-text);
   font-size: 1.4em;
@@ -477,7 +477,7 @@ input:focus + .slider {
 
 .dimensions-display {
   text-align: center;
-  margin: var(--spacing-md) 0;
+  margin: var(--spacing-xs) 0;
   font-size: 1.1em;
   color: var(--color-text-dark);
   font-weight: bold;
@@ -537,17 +537,17 @@ input:focus + .slider {
   display: flex;
   flex-direction: column;
   border: 2px solid var(--color-text);
-  border-radius: var(--border-radius);
+  border-radius: 10px;
   padding: var(--spacing-sm);
-  margin: var(--spacing-md) auto;
+  margin: var(--spacing-xs) auto var(--spacing-lg) auto; /* Reduced top margin */
   transform: rotate(-0.5deg);
-  background-color: var(--color-paper);
   box-shadow: var(--box-shadow);
   position: relative;
   overflow: hidden;
   max-width: 60%;
   width: 60%;
   transition: all 0.3s ease;
+  z-index: 10; /* Ensure it's above other elements */
 }
 
 /* Solving view styling - shows during active maze solving */
@@ -597,6 +597,16 @@ input:focus + .slider {
 }
 
 /* Show results view when maze is completed */
+#maze-activity-tracker.completed {
+  max-width: 70%;
+  background-color: rgba(255, 255, 255, 0.95);
+  transform: rotate(0deg);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  border-width: 2px;
+  z-index: 20; /* Ensure it's above other elements when completed */
+}
+
 #maze-activity-tracker.completed .solving-view {
   display: none;
 }
@@ -775,7 +785,7 @@ input:focus + .slider {
   justify-content: center;
   align-items: center;
   gap: var(--spacing-md);
-  margin: var(--spacing-md) auto;
+  margin: var(--spacing-xs) auto;
   width: 100%;
   max-width: 560px;
 }
@@ -959,63 +969,23 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
 
 /* Add new media queries for small screens */
 @media screen and (max-width: 480px) {
-  /* Reduce body padding */
-  body {
-    padding: var(--spacing-md);
-    font-size: 1.2em;
-  }
-  
-  /* Keep download buttons inline but modify other controls */
-  .controls {
-    gap: var(--spacing-md);
-    margin: var(--spacing-md) 0;
-  }
-  
-  /* Special handling for download buttons section to ensure they stay inline */
-  .controls[aria-label="Download options"] {
-    flex-direction: row !important;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  
-  /* Make other control sections stack vertically */
-  .controls:not([aria-label="Download options"]) {
-    flex-direction: column;
-  }
-  
-  /* Make buttons more compact */
-  button {
-    padding: 6px 10px;
-    min-width: auto;
-    min-height: 36px;
-    font-size: 0.9em;
-  }
-  
-  /* Make download buttons narrower but still visible */
-  #downloadBtn, #downloadPngBtn, #downloadFullSheetBtn {
-    min-width: auto;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    margin: 0 var(--spacing-xs);
-  }
-  
-  /* Make input fields full width */
-  input[type="number"] {
-    width: 100%;
-    margin-bottom: 8px;
-  }
-  
-  /* Reduce padding/margins for maze container */
-  .maze-container {
-    padding: 5px;
-  }
-  
   /* Activity tracker improvements */
   #maze-activity-tracker {
     max-width: 90%;
     width: 90%;
     padding: var(--spacing-md);
+    background-color: rgba(255, 255, 255, 0.9);
     border-width: 2px;
-    margin: var(--spacing-md) auto;
+    margin: 0 auto var(--spacing-md) auto; /* Minimal top margin */
+  }
+  
+  /* Enhanced completed state for mobile */
+  #maze-activity-tracker.completed {
+    max-width: 95%;
+    width: 95%;
+    margin-bottom: var(--spacing-xl);
+    background-color: rgba(255, 255, 255, 0.98);
+    border-width: 3px;
   }
   
   .solving-view #maze-status {
@@ -1073,6 +1043,26 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
     font-size: 0.9em;
     padding: 6px 12px;
     bottom: 10px;
+  }
+  
+  /* Better results visibility on mobile */
+  #maze-activity-tracker.completed {
+    max-width: 95%;
+    width: 95%;
+    margin-bottom: var(--spacing-xl);
+    background-color: rgba(255, 255, 255, 0.98);
+  }
+  
+  /* Rest of mobile styles */
+  .dimensions-display {
+    font-size: 1.2em;
+    margin: 0 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-color: transparent;
+    box-shadow: none;
+    padding: 0;
   }
 }
 
@@ -1162,7 +1152,7 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
 @media screen and (max-width: 480px) {
   .dimensions-display {
     font-size: 1.2em;
-    margin: var(--spacing-md) auto;
+    margin: 0 auto;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1213,7 +1203,7 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
     padding: var(--spacing-md);
     background-color: rgba(255, 255, 255, 0.9);
     border-width: 2px;
-    margin: var(--spacing-md) auto;
+    margin: 0 auto var(--spacing-md) auto; /* Minimal top margin */
   }
   
   .solving-view #maze-status {

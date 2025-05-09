@@ -808,6 +808,15 @@ class PathManager {
         activity.duration = activity.completionTime - activity.startTime;
         activity.completed = true;
         
+        // Ensure timer is stopped
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        
+        // Set activity to inactive to prevent timer updates
+        activity.active = false;
+        
         // Store whether it was completed in hard mode
         activity.hardModeCompleted = this.hardModeManager && this.hardModeManager.isEnabled();
         
@@ -1346,6 +1355,11 @@ class PathManager {
      * Initializes timing metrics and updates UI
      */
     startTimer() {
+        // Don't start timer if maze is already completed
+        if (this.maze.isCompleted) {
+            return;
+        }
+        
         // Get required UI elements
         const activityTracker = document.getElementById('maze-activity-tracker');
         const timerElement = document.getElementById('maze-timer');
@@ -1356,6 +1370,12 @@ class PathManager {
             return;
         }
         
+        // Clean up any existing timer to prevent duplicates
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        
         // Only start if not already running
         if (!this.maze.userActivity.startTime) {
             this.maze.userActivity.startTime = new Date();
@@ -1363,11 +1383,6 @@ class PathManager {
             
             // Update solving status
             statusElement.textContent = 'Solving...';
-            
-            // Clear any existing timer
-            if (this.timerInterval) {
-                clearInterval(this.timerInterval);
-            }
             
             // Set up timer update interval (1 second)
             this.timerInterval = setInterval(() => this.updateTimer(), 1000);
@@ -1384,7 +1399,10 @@ class PathManager {
      * Called on interval while timer is active
      */
     updateTimer() {
-        if (!this.maze.userActivity.active || !this.maze.userActivity.startTime) return;
+        // Don't update timer if maze is completed or activity is not active
+        if (this.maze.isCompleted || !this.maze.userActivity.active || !this.maze.userActivity.startTime) {
+            return;
+        }
         
         // Calculate elapsed time
         const currentTime = new Date();
@@ -1417,17 +1435,11 @@ class PathManager {
         const completionTimeElement = document.getElementById('maze-completion-time');
         const pathLengthElement = document.getElementById('maze-path-length');
         
-        // Stop timer
+        // Ensure timer is stopped (as backup in case called directly)
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
         }
-        
-        // Record completion metrics
-        this.maze.userActivity.completionTime = new Date();
-        this.maze.userActivity.duration = this.maze.userActivity.completionTime - this.maze.userActivity.startTime;
-        this.maze.userActivity.active = false;
-        this.maze.userActivity.completed = true;
         
         // Format time for display (MM:SS)
         const totalSeconds = Math.floor(this.maze.userActivity.duration / 1000);
