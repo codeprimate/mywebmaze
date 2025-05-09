@@ -60,6 +60,15 @@ Components interact through several mechanisms:
 
 The MazeApp module serves as the primary container that encapsulates maze functionality. Implemented as an Immediately Invoked Function Expression (IIFE), it provides encapsulation while exposing a controlled public API.
 
+#### Configuration Properties
+- **_initialized** - Flag to track one-time initialization status
+- **_padding** - Spacing between maze edge and container (default: 10px)
+- **_generationAttempts** - Number of maze variants to generate when optimizing (default: 50)
+- **_generationThreshold** - Percentile score threshold for early termination (default: 95)
+
+#### Private Methods
+- **_getPadding()** - Returns current padding value for coordinate calculations
+
 #### Public API Components
 - **Maze** - Core maze data structure and generation
 - **MazeRenderer** - SVG-based maze renderer
@@ -69,65 +78,83 @@ The MazeApp module serves as the primary container that encapsulates maze functi
 - **init** - Module initialization function
 
 #### Key Methods
-- **init()** - Application entry point that bootstraps the system, ensures one-time initialization, and coordinates DOM-ready events
-- **generateOptimizedMaze()** - Creates high-quality mazes by generating multiple candidates and selecting the best based on difficulty metrics
-- **generateFullSheet()** - Produces printer-friendly documents with multiple mazes arranged in a grid layout with consistent styling
+- **init(callback)** - Application entry point that bootstraps the system, ensures one-time initialization, and coordinates DOM-ready events with optional callback execution
+- **generateOptimizedMaze(width, height, cellSize, seed, attempts)** - Creates high-quality mazes by generating multiple candidates and selecting the best based on difficulty metrics, with fallback to standard generation
+- **generateFullSheet(currentMaze, callback)** - Produces printer-friendly documents with multiple mazes arranged in a grid layout with consistent styling, optimized for standard US Letter paper size
 
 ### Maze Class
 
 The Maze class provides the fundamental data structure representing a single maze instance. It manages the grid of cells and handles the core generation algorithm.
 
 #### Key Properties
-- Grid structure (2D array of cells)
-- Dimensions (width, height)
-- Cell size for rendering
-- Seed value for reproducible generation
-- Entrance and exit positions
-- Difficulty metrics
+- **grid** - 2D array of cells representing the maze structure
+- **width** / **height** - Dimensions of the maze in cells
+- **cellSize** - Size of each cell in pixels for rendering
+- **seed** - Random seed value for reproducible generation
+- **entrance** / **exit** - Objects containing row, col, and side for entry/exit positions
+- **difficultyScore** / **difficultyBreakdown** - Metrics for maze complexity
+- **rng** - Seeded random number generator function
+- **stack** - Array used during maze generation for backtracking
+- **userPath** - Tracks the user's solution attempt
+- **isCompleted** - Flag indicating if maze has been solved
+- **currentPathEnd** - Tracks current end position of user path
 
 #### Key Methods
-- **createCell()** - Constructs cell objects with wall and path properties
+- **createCell(row, col)** - Constructs cell objects with wall and path properties
 - **initialize()** - Sets up the initial grid with all walls intact
-- **seedRandom()** - Creates a deterministic random number generator
-- **generate()** - Implements the depth-first search maze generation algorithm
-- **getUnvisitedNeighbors()** - Identifies candidate cells during generation
-- **createEntranceAndExit()** - Places openings at strategic positions
-- **createOpening()** - Creates a specific opening on a maze boundary
-- **calculateDifficulty()** - Evaluates maze complexity for users
-- **getDifficultyLabel()** - Provides human-readable difficulty rating
-- **getSvgData()** - Prepares SVG representation for export
+- **seedRandom(seed)** - Creates a deterministic random number generator using a Linear Congruential Generator
+- **randomInt(min, max)** - Generates random integer within specified range using the seeded RNG
+- **generate()** - Implements the depth-first search maze generation algorithm with backtracking
+- **getUnvisitedNeighbors(cell)** - Identifies candidate cells during generation with direction information
+- **createEntranceAndExit()** - Places openings at strategic positions on opposite sides
+- **createOpening(side)** - Creates a specific opening on a maze boundary while avoiding corner positions
+- **calculateDifficulty()** - Evaluates maze complexity using MazeDifficultyScorer if available
+- **getDifficultyLabel()** - Provides human-readable difficulty rating based on numeric score
+- **getSvgData()** - Prepares SVG representation for export with metadata footer and proper background
 
 ### WallManager
 
 The WallManager provides utilities for working with maze walls during generation and rendering. It maintains the relationships between adjacent cells and calculates visual coordinates.
 
+#### Key Properties
+- **opposite** - Object mapping each direction to its opposite (north→south, east→west, etc.)
+
 #### Key Features
-- Maintains a mapping of directions to their opposites (north→south, east→west, etc.)
+- Maintains a mapping of directions to their opposites for wall consistency
 - Removes walls between adjacent cells during maze generation
 - Calculates the exact coordinates needed to render walls in SVG
 - Handles consistent wall state between adjacent cells
+- Works with the MazeRenderer to position walls correctly in viewport space
 
 #### Key Methods
-- **removeWalls()** - Removes walls between two adjacent cells and updates both cells for consistency
-- **getWallCoordinates()** - Calculates the SVG line coordinates for walls based on cell position and direction
+- **removeWalls(cell1, cell2, direction)** - Removes walls between two adjacent cells and updates both cells for consistency
+- **getWallCoordinates(cell, cellSize, direction)** - Calculates the SVG line coordinates for walls based on cell position, direction, and maze padding
 
 ### MazeRenderer
 
 The MazeRenderer handles the visualization of maze structures using SVG and the rough.js library for a hand-drawn aesthetic.
 
+#### Key Properties
+- **svgElement** - Reference to the target SVG container element
+- **rough** - Instance of rough.js SVG renderer for creating hand-drawn visuals
+
+#### Constructor
+- **constructor(svgElement)** - Initializes a new renderer with the specified SVG element and configures rough.js
+
 #### Key Features
 - Creates and manages the SVG elements for maze display
-- Renders walls with randomized "hand-drawn" styling
+- Renders walls with randomized "hand-drawn" styling using rough.js
 - Handles entrance and exit markers with appropriate styling
 - Manages SVG dimensions and viewport settings
 - Provides methods for clearing and redrawing the maze
+- Ensures deterministic rendering using seed-based randomization
 
 #### Key Methods
-- **render()** - Draws the complete maze with all walls and markers
-- **clear()** - Removes all SVG elements from the container
-- **setSize()** - Updates SVG element dimensions to match maze size
-- **createElement()** - Helper to create namespaced SVG elements with attributes
-- **drawMarker()** - Draws colored markers at specified positions
+- **render(maze)** - Draws the complete maze with all walls, background, and optional markers
+- **clear()** - Removes all SVG elements from the container for redrawing
+- **setSize(width, height)** - Updates SVG element dimensions to match maze size
+- **createElement(type, attributes)** - Helper to create namespaced SVG elements with attributes
+- **drawMarker(maze, position, color)** - Draws colored markers at specified positions with hand-drawn styling
 
 ## Enhancement Modules
 
@@ -266,74 +293,203 @@ The PathManager handles all user interactions related to solving the maze, inclu
 
 ### Initialization Sequence
 
-The application follows this initialization sequence:
+The application follows this detailed initialization sequence:
 
 1. The DOM's `DOMContentLoaded` event triggers `main.js`, which calls `MazeApp.init()`
-2. `MazeApp.init()` verifies the module hasn't already been initialized, then:
-   - Sets the initialization flag
-   - Registers itself in the global scope for cross-module access
-   - Waits for DOM readiness, then calls `MazeUI.init()`
+2. `MazeApp.init()` implements protection against multiple initializations through:
+   - Checking the `_initialized` flag and exiting if true
+   - Setting the initialization flag to `true`
+   - Executing any callback passed as a parameter
+   - Checking `document.readyState` to handle different page load states
+   - Adding a `DOMContentLoaded` event listener if DOM is still loading
+   - Using `window.MazeApp = MazeApp` to register itself in the global scope
+   - Calling `MazeUI.init()` once DOM is ready
 
-3. `MazeUI.init()` performs the following sequence:
-   - Creates the maze SVG container
-   - Initializes the `MazeRenderer` with this container
-   - Initializes the `HardModeManager` for visibility constraints
-   - Sets up the `MazeController` by calling its `setupEventListeners()` method
-   - Retrieves the seed from URL hash via `MazeController.getSeedFromHash()` (or generates a new one)
-   - Calculates optimal maze dimensions for the current device
-   - Finally calls `MazeController.generateMaze()` to create the initial maze
+3. `MazeUI.init()` then performs the following sequence:
+   - Validates its own `_initialized` flag to prevent multiple initializations
+   - Calls back to `MazeApp.init()` with a callback function for bootstrapping
+   - Fetches and validates the SVG element with `document.getElementById('maze')`
+   - Initializes `_mazeRenderer = new MazeApp.MazeRenderer(svgElement)` for visualization
+   - Creates `_hardModeManager = new HardModeManager(svgElement)` for visibility constraints
+   - Registers event listeners with `MazeController.setupEventListeners()`
+   - Retrieves or generates a seed using `MazeController.getSeedFromHash()` or `MazeController.generateRandomSeed()`
+   - Calls `calculateOptimalDimensions()` based on screen size and device type
+   - Updates the input form with optimized values for width, height, and cell size
+   - Calls `MazeController.generateMaze()` to create the initial maze
+   - Sets `_initialized = true` to complete UI initialization
 
 4. When `MazeController.generateMaze()` is called:
-   - Input validation is performed on maze parameters
-   - Either a standard `Maze` or optimized maze via `MazeOptimizer` is created
-   - The maze is rendered to the SVG container
-   - `PathManager` is initialized with the maze and SVG references
-   - `HardModeManager` is updated with the new maze reference
-   - UI elements (dimensions, difficulty display) are updated
-   - Timer and activity tracking are reset
+   - Input values are retrieved with `document.getElementById()` and parsed with `parseInt()`
+   - Validation is performed with `isValidInput()` with fallback to default values
+   - URL parameters are checked with `getUrlParam('standard')` to determine generation mode
+   - For standard generation: `_maze = new MazeApp.Maze(width, height, cellSize, seed)` followed by `_maze.generate()`
+   - For optimized generation: `_maze = MazeApp.generateOptimizedMaze(width, height, cellSize, seed, attempts)`
+   - The maze is rendered with `_mazeRenderer.render(_maze)`
+   - Any existing activity tracking is reset with timer cleanup and `_pathManager.resetActivityUI()`
+   - Path manager is initialized with `_pathManager = new PathManager(_maze, svgElement, rough.svg())`
+   - Hard mode is configured with `_hardModeManager.setMaze()` and `_hardModeManager.setPathManager()`
+   - UI elements are updated to show current dimensions, difficulty, etc.
+   - URL hash is updated with `updateUrlHash()` for shareable links
+
+5. The `Maze.generate()` process includes:
+   - Selecting a random starting cell with `randomInt()`
+   - Implementing depth-first search maze generation algorithm with wall removal
+   - Creating entrance and exit points with `createEntranceAndExit()` 
+   - Calculating difficulty metrics with `calculateDifficulty()`
 
 ### Maze Generation Flow
 
-When a user requests a new maze:
-1. The request is handled by `MazeController.generateMaze()`
-2. UI input validation occurs first
-3. User parameters (dimension, seed) are captured and sanitized
-4. The seed is stored in URL hash for sharing/persistence
-5. The appropriate maze type is instantiated based on settings
-6. The maze generation algorithm executes
-7. Entrance/exit points are created
-8. Difficulty scoring is calculated
-9. The maze is rendered to the SVG container
-10. PathManager is re-initialized for the new maze
+When a user requests a new maze, the flow involves:
+
+1. UI event (button click) triggers `MazeController.generateMaze()`
+2. Input validation and sanitization:
+   - `parseInt()` parses form values to numeric types
+   - `isValidInput()` validates against min/max constraints
+   - Default values are substituted for invalid inputs
+   - Input fields are updated with validated values
+   - Random seed is generated with `generateRandomSeed()` if needed
+
+3. Configuration and persistence:
+   - `updateUrlHash()` stores maze parameters in URL for sharing
+   - Configuration object is created with validated parameters
+   - URL parameters are checked with `getUrlParam('standard')` for mode selection
+
+4. Maze instantiation and generation:
+   - For standard mode:
+     - `new MazeApp.Maze(width, height, cellSize, seed)` creates maze instance
+     - `maze.generate()` executes DFS algorithm with backtracking
+     - `maze.getUnvisitedNeighbors()` identifies expansion cells
+     - `WallManager.removeWalls()` carves passages between cells
+   - For optimized mode:
+     - `MazeApp.generateOptimizedMaze()` creates `MazeOptimizer` instance
+     - `optimizer.config` sets parameters for optimization
+     - `optimizer.optimize()` generates multiple candidates
+     - `optimizer.generateCandidate()` creates each maze variant
+     - Candidate evaluation selects best maze based on difficulty
+   - For enhanced mazes:
+     - `EnhancedMaze.generate()` uses multi-phase generation
+     - `generateEnhancedDFS()` applies directional persistence
+     - `applyStrategicWallRemoval()` creates loops for complexity
+
+5. Maze rendering and setup:
+   - `_mazeRenderer.render(_maze)` visualizes the maze with SVG
+   - `renderer.clear()` removes previous maze elements
+   - `renderer.setSize(width, height)` configures SVG dimensions
+   - `renderer.drawWalls()` renders maze walls with rough.js
+   - `renderer.drawMarkers()` creates entrance/exit indicators
+
+6. Path manager initialization:
+   - `new PathManager(_maze, svgElement, rough)` creates interaction handler
+   - `_pathManager.resetActivityUI()` clears previous timers/stats
+   - `_pathManager.setupInteractions()` registers event handlers
+   - Connection to `_hardModeManager` with `setPathManager()`/`setHardModeManager()`
+
+7. UI updates:
+   - Difficulty rating displayed with `_maze.getDifficultyLabel()`
+   - Dimensions shown with formatted string of width/height/cellSize
+   - `updateFullSheetButtonVisibility()` toggles export options
+   - Event listeners are reset for the new maze
 
 ### Path Drawing Flow
 
-When a user draws a path through the maze:
-1. Pointer/touch events are captured by event listeners
-2. The events are normalized across devices
-3. Cell coordinates are calculated from event positions
-4. Cell validity is checked against walls and previous path
-5. If valid, the cell is added to the path
-6. Path visuals are updated with animations
-7. If the path reaches the exit:
-   - Timer is stopped
-   - Completion animation plays
-   - Statistics are calculated and displayed
-   - Star rating is determined based on efficiency
+When a user draws a path through the maze, the interaction flow is:
+
+1. Event handling:
+   - `PathManager.setupInteractions()` registers event listeners during initialization
+   - Events are normalized through `handlePointerDown`, `handlePointerMove`, `handlePointerUp` functions
+   - `addEventListener()` attaches handlers to SVG element
+   - Device detection with `window.matchMedia()` for touch-specific handling
+   - Event capture settings prevent unwanted browser behaviors
+
+2. Cell position calculation:
+   - `getCellFromEvent(e)` translates event coordinates to grid position
+   - Coordinates normalized with `getBoundingClientRect()` and client/page offsets
+   - Touch events handled specially with `e.touches[0]` for coordinates
+   - `Math.floor()` converts pixel positions to cell indices
+
+3. Path validation:
+   - `canAddCellToPath(cell)` validates against maze rules
+   - Wall checking with cell's `walls` property from current position
+   - Entrance/exit detection with `maze.entrance`/`maze.exit`
+   - Path continuity validation with `areCellsAdjacent()`
+   - Linear path checks with `hasLinearPathBetween()`
+   - Hard mode visibility check with `hardModeManager.isCellVisible()`
+
+4. Path construction:
+   - `addCellToPath(cell)` updates `maze.userPath` and `maze.currentPathEnd`
+   - Cell marked with `cell.inPath = true` and `cell.pathOrder`
+   - `startActivityTracking()` begins timing on first cell
+   - Special handling for entrance with `maze.entrance` reference
+   - Linear path adding with `addLinearPathCells()` for multi-cell segments
+
+5. Visual rendering:
+   - `renderPath()` visualizes current path with SVG/rough.js
+   - `clearPathGraphics()` removes previous path elements
+   - `getPathCenterPoints()` calculates precise coordinates
+   - `drawPathLine()` creates SVG line segments with styling
+   - `animatePathSegment()` provides smooth transitions
+   - `highlightPathEnd()` marks current position with indicator
+
+6. Completion handling:
+   - Exit detection with `cell.row === maze.exit.row && cell.col === maze.exit.col`
+   - `completeMaze()` triggers solution acceptance
+   - `stopActivityTracking()` freezes timer
+   - `calculateScore()` evaluates performance metrics
+   - `displayCompletionMessage()` shows feedback
+   - `maze.isCompleted = true` updates maze state
+   - `playCompletionAnimation()` provides visual confirmation
 
 ### Export Flow
 
-When a user exports a maze:
-1. The appropriate export method is called based on format
-2. For SVG: the maze SVG data is serialized directly
-3. For PNG: SVG is rendered to canvas, then converted to PNG
-4. For PDF sheets:
-   - Multiple mazes are generated with random seeds
-   - Each maze is rendered to a temporary SVG
-   - SVGs are converted to images
-   - Images are placed on a PDF document
-   - Metadata (seeds, dimensions) is added
-5. The resulting file is sent to the browser for download
+When a user exports a maze, the process follows these detailed steps:
+
+1. Export format selection through UI buttons:
+   - `downloadMaze()` for SVG format
+   - `downloadPng()` for PNG format
+   - `downloadFullSheet()` for multi-maze PDF
+
+2. For SVG export:
+   - `_maze.getSvgData()` prepares standalone SVG representation
+   - SVG clone created with `svgElement.cloneNode(true)`
+   - UI elements (resize handles) removed from export version
+   - Background rectangle added with `createElementNS('rect')`
+   - Metadata footer added with `createElementNS('text')`
+   - SVG serialized with `new XMLSerializer().serializeToString()`
+   - Blob created with `new Blob([svgData], {type: 'image/svg+xml'})`
+   - Download initiated with temporary `<a>` element and `link.click()`
+
+3. For PNG export:
+   - SVG data prepared with `_maze.getSvgData()`
+   - Canvas created with `document.createElement('canvas')`
+   - Drawing context obtained with `canvas.getContext('2d')`
+   - SVG converted to image with `new Image()` and `img.src = url`
+   - White background added with `ctx.fillStyle = 'white'` and `ctx.fillRect()`
+   - Image drawn to canvas with `ctx.drawImage(img, 0, 0)`
+   - PNG data extracted with `canvas.toDataURL('image/png')`
+   - Download initiated with temporary `<a>` element and `link.click()`
+
+4. For PDF sheet export:
+   - Loading indicator shown with `setExportStatus('generating')`
+   - PDF document created with `new jspdf.jsPDF()`
+   - Page layout calculated based on US Letter dimensions
+   - For each maze position in grid:
+     - Random seed generated with `Math.floor(Math.random() * 1000000)`
+     - Maze instance created with standard or optimized generation
+     - Maze rendered to temporary SVG with `renderer.render(maze)`
+     - SVG serialized and converted to image
+     - Canvas used to process image with white background
+     - Image added to PDF with `pdf.addImage()`
+   - Metadata added to footer with maze count and dimensions
+   - PDF saved with `pdf.save()` and descriptive filename
+   - Loading indicator removed with `setExportStatus('complete')`
+   - Memory cleanup with `URL.revokeObjectURL()`
+
+5. Special considerations:
+   - Optimized generation parameters for PDF sheet (fewer attempts)
+   - Memory management for large PDF operations
+   - DPI adjustment between screen (96 DPI) and PDF (72 DPI)
+   - Margin and spacing calculations for visual appeal
+   - Maze identification with seed numbers in footer
 
 ## Cross-Platform Support
 
