@@ -39,11 +39,17 @@ class PathManager {
         this.tiltConfig = {
             enabled: true,              // Enabled by default
             lastMove: 0,                // Timestamp of last movement
-            threshold: 8,               // Degrees of tilt required to trigger movement
-            moveDelay: 250,             // Milliseconds between moves to prevent rapid movement
+            threshold: 15,              // Degrees of tilt required to trigger movement (increased from 8 to 15)
+            moveDelay: 400,             // Milliseconds between moves (increased from 250 to 400ms)
             sensitivityX: 1.0,          // Multiplier for X-axis (beta) sensitivity
             sensitivityY: 1.2,          // Multiplier for Y-axis (gamma) sensitivity
-            initializedOnce: false      // Track if we've tried to initialize once
+            initializedOnce: false,     // Track if we've tried to initialize once
+            // Dampening to smooth out readings
+            dampening: {
+                enabled: true,          // Enable dampening for smoother control
+                samples: [null, null, null], // Buffer for recent readings
+                currentIndex: 0         // Current position in the buffer
+            }
         };
         
         // Animation state management - maintains references to active animations
@@ -1877,11 +1883,40 @@ class PathManager {
         // Don't process if we don't have valid tilt data
         if (beta === null || gamma === null) return;
         
+        // Apply dampening if enabled
+        let dampBeta = beta;
+        let dampGamma = gamma;
+        
+        if (this.tiltConfig.dampening.enabled) {
+            // Store the new sample
+            const dampening = this.tiltConfig.dampening;
+            dampening.samples[dampening.currentIndex] = { beta, gamma };
+            dampening.currentIndex = (dampening.currentIndex + 1) % dampening.samples.length;
+            
+            // Calculate average from valid samples
+            let validSamples = 0;
+            let betaSum = 0;
+            let gammaSum = 0;
+            
+            for (const sample of dampening.samples) {
+                if (sample !== null) {
+                    betaSum += sample.beta;
+                    gammaSum += sample.gamma;
+                    validSamples++;
+                }
+            }
+            
+            if (validSamples > 0) {
+                dampBeta = betaSum / validSamples;
+                dampGamma = gammaSum / validSamples;
+            }
+        }
+        
         // Update debug display if in debug mode
         if (this.debugEnabled) {
             const tiltDebug = document.getElementById('tilt-debug');
             if (tiltDebug) {
-                tiltDebug.textContent = `Tilt - Beta: ${beta.toFixed(1)}°, Gamma: ${gamma.toFixed(1)}°`;
+                tiltDebug.textContent = `Tilt - Beta: ${beta.toFixed(1)}° (damp: ${dampBeta.toFixed(1)}°), Gamma: ${gamma.toFixed(1)}° (damp: ${dampGamma.toFixed(1)}°)`;
             }
         }
         
@@ -1896,8 +1931,8 @@ class PathManager {
         
         // Calculate direction based on tilt angles
         // Apply sensitivity multiplier to make it more responsive
-        const adjustedBeta = beta * this.tiltConfig.sensitivityX;
-        const adjustedGamma = gamma * this.tiltConfig.sensitivityY;
+        const adjustedBeta = dampBeta * this.tiltConfig.sensitivityX;
+        const adjustedGamma = dampGamma * this.tiltConfig.sensitivityY;
         
         // Determine movement direction based on which axis has the larger tilt
         if (Math.abs(adjustedBeta) > Math.abs(adjustedGamma)) {
