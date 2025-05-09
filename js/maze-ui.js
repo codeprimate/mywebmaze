@@ -1473,6 +1473,9 @@ const MazeUI = (function() {
     function init() {
         if (_initialized) return;
         
+        // Register components with global MazeUI object
+        window.MazeUI = window.MazeUI || {};
+        
         // Initialize the core module first
         MazeApp.init(() => {
             const svgElement = document.getElementById('maze');

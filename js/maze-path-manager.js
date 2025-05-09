@@ -13,6 +13,25 @@ class PathManager {
         this.rough = rough;
         this.padding = 10
         
+        // Initialize global tilt permission tracking if needed
+        if (typeof window.tiltPermissionRequested === 'undefined') {
+            // Check sessionStorage first for persistence across page refreshes
+            try {
+                const storedState = sessionStorage.getItem('tiltPermissionState');
+                if (storedState) {
+                    const state = JSON.parse(storedState);
+                    window.tiltPermissionRequested = state.requested || false;
+                    window.tiltPermissionGranted = state.granted || false;
+                } else {
+                    window.tiltPermissionRequested = false;
+                    window.tiltPermissionGranted = false;
+                }
+            } catch (e) {
+                window.tiltPermissionRequested = false;
+                window.tiltPermissionGranted = false;
+            }
+        }
+        
         // Configuration for path animations - controls visual appearance and timing
         this.animationConfig = {
             duration: 200, // Base duration in milliseconds - adjusted for longer paths
@@ -44,6 +63,7 @@ class PathManager {
             sensitivityX: 1.0,          // Multiplier for X-axis (beta) sensitivity
             sensitivityY: 1.2,          // Multiplier for Y-axis (gamma) sensitivity
             initializedOnce: false,     // Track if we've tried to initialize once
+            initializedTime: null,      // Timestamp of when initialization occurred
             // Dampening to smooth out readings
             dampening: {
                 enabled: true,          // Enable dampening for smoother control
@@ -1763,9 +1783,13 @@ class PathManager {
      * This is automatically called during initialization
      */
     setupTiltControls() {
-        // Only set up once
-        if (this.tiltConfig.initializedOnce) return;
+        // Only set up once per instance
+        if (this.tiltConfig.initializedOnce) {
+            this.debug('Tilt controls already initialized in this instance', 'info');
+            return;
+        }
         this.tiltConfig.initializedOnce = true;
+        this.tiltConfig.initializedTime = Date.now();
         
         // Check if this is a mobile device with orientation support
         const isMobileDevice = this.detectMobileDevice();
@@ -1851,6 +1875,23 @@ class PathManager {
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             this.debug('Device requires permission for orientation events (iOS 13+)', 'info');
             
+            // Use a global variable to track if permission has been requested during this page session
+            if (!window.tiltPermissionRequested) {
+                window.tiltPermissionRequested = false;
+            }
+            
+            // If permission was already requested in this session, don't show dialog again
+            if (window.tiltPermissionRequested) {
+                this.debug('Tilt permission already requested in this page session', 'info');
+                if (window.tiltPermissionGranted) {
+                    this.debug('Using previously granted permission', 'success');
+                    if (this.tiltConfig.enabled && tiltToggle && tiltToggle.checked) {
+                        this.attachTiltEventListener();
+                    }
+                }
+                return;
+            }
+            
             // Create permission request button container if it doesn't exist
             let permissionContainer = document.getElementById('tilt-permission-container');
             if (!permissionContainer) {
@@ -1886,10 +1927,20 @@ class PathManager {
                 
                 // Add event listener for permission button
                 document.getElementById('tiltPermissionBtn').addEventListener('click', () => {
+                    // Mark that permission has been requested in this session
+                    window.tiltPermissionRequested = true;
+                    
                     DeviceOrientationEvent.requestPermission()
                         .then(permissionState => {
                             if (permissionState === 'granted') {
                                 this.debug('DeviceOrientation permission granted', 'success');
+                                
+                                // Store permission state in global variable
+                                window.tiltPermissionGranted = true;
+                                
+                                // Save state to sessionStorage for persistence across page refreshes
+                                this._saveTiltPermissionState();
+                                
                                 // Only enable if toggle is checked based on saved preference
                                 if (tiltToggle) {
                                     // Don't change the toggle checked state here
@@ -1901,6 +1952,13 @@ class PathManager {
                                 document.body.removeChild(permissionContainer);
                             } else {
                                 this.debug('DeviceOrientation permission denied', 'error');
+                                
+                                // Store permission state in global variable
+                                window.tiltPermissionGranted = false;
+                                
+                                // Save state to sessionStorage for persistence across page refreshes
+                                this._saveTiltPermissionState();
+                                
                                 this.tiltConfig.enabled = false;
                                 if (tiltToggle) {
                                     tiltToggle.checked = false;
@@ -1912,6 +1970,13 @@ class PathManager {
                         })
                         .catch(error => {
                             this.debug(`Error requesting permission: ${error}`, 'error');
+                            
+                            // Store permission state in global variable
+                            window.tiltPermissionGranted = false;
+                            
+                            // Save state to sessionStorage for persistence across page refreshes
+                            this._saveTiltPermissionState();
+                            
                             this.tiltConfig.enabled = false;
                             if (tiltToggle) {
                                 tiltToggle.checked = false;
@@ -1925,6 +1990,14 @@ class PathManager {
                 // Add event listener for cancel button
                 document.getElementById('tiltPermissionCancelBtn').addEventListener('click', () => {
                     this.debug('Permission request canceled by user', 'info');
+                    
+                    // Mark as requested but denied
+                    window.tiltPermissionRequested = true;
+                    window.tiltPermissionGranted = false;
+                    
+                    // Save state to sessionStorage for persistence across page refreshes
+                    this._saveTiltPermissionState();
+                    
                     this.tiltConfig.enabled = false;
                     if (tiltToggle) {
                         tiltToggle.checked = false;
@@ -1970,6 +2043,23 @@ class PathManager {
     _saveTiltControlsState() {
         localStorage.setItem('tiltControlsEnabled', this.tiltConfig.enabled.toString());
         this.debug(`Saved tilt controls preference: ${this.tiltConfig.enabled}`, 'info');
+    }
+    
+    /**
+     * Saves the tilt permission state to sessionStorage
+     * Ensures permission state persists across page refreshes
+     * @private
+     */
+    _saveTiltPermissionState() {
+        try {
+            sessionStorage.setItem('tiltPermissionState', JSON.stringify({
+                requested: window.tiltPermissionRequested || false,
+                granted: window.tiltPermissionGranted || false
+            }));
+            this.debug('Saved tilt permission state to sessionStorage', 'info');
+        } catch (e) {
+            this.debug(`Failed to save tilt permission state: ${e}`, 'error');
+        }
     }
     
     /**
