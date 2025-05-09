@@ -35,6 +35,17 @@ class PathManager {
             }
         };
         
+        // Tilt control configuration
+        this.tiltConfig = {
+            enabled: true,              // Enabled by default
+            lastMove: 0,                // Timestamp of last movement
+            threshold: 8,               // Degrees of tilt required to trigger movement
+            moveDelay: 250,             // Milliseconds between moves to prevent rapid movement
+            sensitivityX: 1.0,          // Multiplier for X-axis (beta) sensitivity
+            sensitivityY: 1.2,          // Multiplier for Y-axis (gamma) sensitivity
+            initializedOnce: false      // Track if we've tried to initialize once
+        };
+        
         // Animation state management - maintains references to active animations
         // and provides methods to control animation lifecycle
         this.animation = {
@@ -150,6 +161,9 @@ class PathManager {
         this.setupPathGroup();
         this.setupInteractions();
         this.createActivityTrackerUI();
+        
+        // Automatically initialize tilt controls
+        this.setupTiltControls();
     }
     
     /**
@@ -313,6 +327,13 @@ class PathManager {
         if (this.maze.isCompleted) {
             this.maze.isCompleted = false;
             _mazeRenderer.render(this.maze);
+        }
+        
+        // If tilt controls are enabled, start path from entrance
+        if (this.tiltConfig.enabled && this.maze.userPath.length === 0) {
+            const entranceCell = this.maze.grid[this.maze.entrance.row][this.maze.entrance.col];
+            this.addCellToPath(entranceCell);
+            this.debug('Path started at entrance for tilt controls after reset', 'info');
         }
     }
     
@@ -1729,6 +1750,240 @@ class PathManager {
         if (this.hardModeManager && this.hardModeManager.isEnabled()) {
             this.hardModeManager.updateVisibleArea();
         }
+    }
+    
+    /**
+     * Sets up device tilt controls for manipulating the path
+     * This is automatically called during initialization
+     */
+    setupTiltControls() {
+        // Only set up once
+        if (this.tiltConfig.initializedOnce) return;
+        this.tiltConfig.initializedOnce = true;
+        
+        // Exit if orientation events aren't supported
+        if (!window.DeviceOrientationEvent) {
+            this.tiltConfig.enabled = false;
+            this.debug('Device orientation not supported by this browser/device', 'warning');
+            return;
+        }
+        
+        this.debug('Setting up tilt controls', 'info');
+        
+        // Create debug element if in debug mode
+        if (this.debugEnabled) {
+            let tiltDebug = document.getElementById('tilt-debug');
+            if (!tiltDebug) {
+                tiltDebug = document.createElement('div');
+                tiltDebug.id = 'tilt-debug';
+                tiltDebug.style.position = 'absolute';
+                tiltDebug.style.bottom = '40px';
+                tiltDebug.style.right = '10px';
+                tiltDebug.style.background = 'rgba(0, 0, 0, 0.7)';
+                tiltDebug.style.color = 'white';
+                tiltDebug.style.padding = '5px';
+                tiltDebug.style.borderRadius = '4px';
+                tiltDebug.style.fontSize = '12px';
+                tiltDebug.style.zIndex = '1000';
+                document.body.appendChild(tiltDebug);
+            }
+        }
+        
+        // Handle iOS permission model (iOS 13+)
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            this.debug('Device requires permission for orientation events (iOS 13+)', 'info');
+            
+            // Create permission request button
+            const permissionBtn = document.createElement('button');
+            permissionBtn.textContent = 'Enable Tilt Controls';
+            permissionBtn.style.position = 'fixed';
+            permissionBtn.style.top = '50%';
+            permissionBtn.style.left = '50%';
+            permissionBtn.style.transform = 'translate(-50%, -50%)';
+            permissionBtn.style.padding = '10px 20px';
+            permissionBtn.style.backgroundColor = '#4285F4';
+            permissionBtn.style.color = 'white';
+            permissionBtn.style.border = 'none';
+            permissionBtn.style.borderRadius = '4px';
+            permissionBtn.style.fontSize = '16px';
+            permissionBtn.style.zIndex = '10000';
+            permissionBtn.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+            
+            permissionBtn.addEventListener('click', () => {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            this.debug('DeviceOrientation permission granted', 'success');
+                            this.attachTiltEventListener();
+                            document.body.removeChild(permissionBtn);
+                        } else {
+                            this.debug('DeviceOrientation permission denied', 'error');
+                            this.tiltConfig.enabled = false;
+                            document.body.removeChild(permissionBtn);
+                        }
+                    })
+                    .catch(error => {
+                        this.debug(`Error requesting permission: ${error}`, 'error');
+                        this.tiltConfig.enabled = false;
+                        document.body.removeChild(permissionBtn);
+                    });
+            });
+            
+            document.body.appendChild(permissionBtn);
+            
+            // User needs to interact with the page first on iOS
+            this.debug('Waiting for user to grant permission', 'info');
+        } else {
+            // No permission needed, attach directly
+            this.attachTiltEventListener();
+        }
+    }
+    
+    /**
+     * Attaches device orientation event listener
+     * Sets up the handler for processing tilt data
+     */
+    attachTiltEventListener() {
+        if (!this.tiltConfig.enabled) return;
+        
+        // Bind the handler to maintain 'this' context
+        this.handleDeviceTilt = this.handleDeviceTilt.bind(this);
+        
+        // Add the event listener
+        window.addEventListener('deviceorientation', this.handleDeviceTilt);
+        
+        this.debug('Tilt controls activated', 'success');
+        
+        // Initialize first position if path is empty
+        if (this.maze.userPath.length === 0) {
+            const entranceCell = this.maze.grid[this.maze.entrance.row][this.maze.entrance.col];
+            this.addCellToPath(entranceCell);
+            this.debug('Path started at entrance for tilt controls', 'info');
+        }
+    }
+    
+    /**
+     * Processes device orientation data to translate tilt into path movement
+     * 
+     * @param {DeviceOrientationEvent} event - The device orientation event
+     */
+    handleDeviceTilt(event) {
+        if (!this.tiltConfig.enabled || this.maze.isCompleted) return;
+        
+        // Get tilt angles
+        const beta = event.beta;  // Front-to-back tilt (-180 to 180)
+        const gamma = event.gamma; // Left-to-right tilt (-90 to 90)
+        
+        // Don't process if we don't have valid tilt data
+        if (beta === null || gamma === null) return;
+        
+        // Update debug display if in debug mode
+        if (this.debugEnabled) {
+            const tiltDebug = document.getElementById('tilt-debug');
+            if (tiltDebug) {
+                tiltDebug.textContent = `Tilt - Beta: ${beta.toFixed(1)}°, Gamma: ${gamma.toFixed(1)}°`;
+            }
+        }
+        
+        // Check if enough time has passed since last move
+        const now = Date.now();
+        if (now - this.tiltConfig.lastMove < this.tiltConfig.moveDelay) return;
+        
+        // Get current position
+        if (this.maze.userPath.length === 0) return; // No path started yet
+        
+        const currentCell = this.maze.grid[this.maze.currentPathEnd.row][this.maze.currentPathEnd.col];
+        
+        // Calculate direction based on tilt angles
+        // Apply sensitivity multiplier to make it more responsive
+        const adjustedBeta = beta * this.tiltConfig.sensitivityX;
+        const adjustedGamma = gamma * this.tiltConfig.sensitivityY;
+        
+        // Determine movement direction based on which axis has the larger tilt
+        if (Math.abs(adjustedBeta) > Math.abs(adjustedGamma)) {
+            // Front-back tilt is stronger
+            if (Math.abs(adjustedBeta) > this.tiltConfig.threshold) {
+                if (adjustedBeta > 0) {
+                    // Tilting forward (towards south)
+                    this.tryMoveTiltDirection(currentCell, 'south');
+                } else {
+                    // Tilting backward (towards north)
+                    this.tryMoveTiltDirection(currentCell, 'north');
+                }
+            }
+        } else {
+            // Left-right tilt is stronger
+            if (Math.abs(adjustedGamma) > this.tiltConfig.threshold) {
+                if (adjustedGamma > 0) {
+                    // Tilting right (towards east)
+                    this.tryMoveTiltDirection(currentCell, 'east');
+                } else {
+                    // Tilting left (towards west)
+                    this.tryMoveTiltDirection(currentCell, 'west');
+                }
+            }
+        }
+    }
+    
+    /**
+     * Attempts to move in the specified direction based on tilt
+     * 
+     * @param {Object} currentCell - The current cell
+     * @param {string} direction - The direction to move ('north', 'east', 'south', 'west')
+     * @returns {boolean} Whether the move was successful
+     */
+    tryMoveTiltDirection(currentCell, direction) {
+        // Calculate target cell coordinates based on direction
+        let targetRow = currentCell.row;
+        let targetCol = currentCell.col;
+        
+        switch (direction) {
+            case 'north': targetRow--; break;
+            case 'east': targetCol++; break;
+            case 'south': targetRow++; break;
+            case 'west': targetCol--; break;
+        }
+        
+        // Check if target cell is valid and within bounds
+        if (targetRow < 0 || targetRow >= this.maze.height || 
+            targetCol < 0 || targetCol >= this.maze.width) {
+            return false;
+        }
+        
+        // Get the target cell
+        const targetCell = this.maze.grid[targetRow][targetCol];
+        
+        // In hard mode, check visibility
+        if (this.hardModeManager && this.hardModeManager.isEnabled()) {
+            if (!this.hardModeManager.isCellVisible(targetCell)) {
+                return false;
+            }
+        }
+        
+        // Check if we can move to this cell
+        if (!this.hasWallBetween(currentCell, targetCell)) {
+            // Valid move - add to path
+            const success = this.addCellToPath(targetCell);
+            if (success) {
+                this.tiltConfig.lastMove = Date.now();
+                this.debug(`Tilt moved to (${targetRow},${targetCol}) - direction: ${direction}`, 'success');
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Disables tilt controls
+     */
+    disableTiltControls() {
+        if (!this.tiltConfig.enabled) return;
+        
+        window.removeEventListener('deviceorientation', this.handleDeviceTilt);
+        this.tiltConfig.enabled = false;
+        
+        this.debug('Tilt controls disabled', 'info');
     }
 }
 
