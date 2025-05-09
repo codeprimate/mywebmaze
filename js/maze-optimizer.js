@@ -1,46 +1,50 @@
-// Maze Optimizer Module
-// Implements a multi-generation optimization approach to create more complex mazes
+/**
+ * Maze Optimizer
+ * 
+ * A genetic algorithm approach to generate mazes with specific characteristics:
+ * - Higher difficulty rating
+ * - Longer solution paths
+ * - More complex branch structures
+ * 
+ * The optimizer generates multiple candidate mazes with varied parameters
+ * and selects the best based on weighted scoring of difficulty and path length.
+ */
 
 class MazeOptimizer {
     constructor(baseOptions = {}) {
-        // Default configuration
+        // Core configuration settings - adjust these to control optimization behavior
         this.config = {
-            generationAttempts: 10,      // Number of candidate mazes to generate
-            earlyTerminationThreshold: 95, // Stop if we find a maze with this difficulty and a longer solution path
-            baselineSkipThreshold: 95,   // Skip optimization if baseline difficulty is above this
-            variationFactor: 0.4, // Perturbation factor for parameter exploration
+            generationAttempts: 10,      // Number of candidate mazes to generate per optimization run
+            earlyTerminationThreshold: 95, // Stop if we find a high-quality maze (0-100 scale)
+            baselineSkipThreshold: 95,   // Skip optimization if baseline maze is already excellent
+            variationFactor: 0.4,        // Controls mutation strength when evolving parameters
             width: baseOptions.width || 10,
             height: baseOptions.height || 10,
             cellSize: baseOptions.cellSize || 20,
             baseSeed: baseOptions.seed || Math.floor(Math.random() * 1000000),
-            pathLengthWeight: 0.3,       // Weight for path length in balanced scoring (difficulty gets 1 - pathLengthWeight)
+            pathLengthWeight: 0.3,       // Balance between optimizing for path length vs difficulty
         };
         
-        // Initialize seeded random number generator
+        // Seeded RNG ensures reproducible results with the same seed
         this.rng = this.seedRandom(this.config.baseSeed);
         
-        // Parameter ranges for exploration
+        // Parameter space to explore during optimization
         this.parameterRanges = {
-            wallRemovalFactor: { min: 0.0, max: 0.5 },
-            deadEndLengthFactor: { min: 0.0, max: 1.0 },
-            directionalPersistence: { min: 0.0, max: 0.5 },
-            complexityBalancePreference: { min: 0.0, max: 1.0 }
+            wallRemovalFactor: { min: 0.0, max: 0.5 },    // Controls shortcuts/loops in the maze
+            deadEndLengthFactor: { min: 0.0, max: 1.0 },  // Influences length of dead-end paths
+            directionalPersistence: { min: 0.0, max: 0.5 }, // Creates straighter/more winding paths
+            complexityBalancePreference: { min: 0.0, max: 1.0 } // Balance between branch complexity types
         };
         
-        // Storage for generation results
         this.candidates = [];
         this.bestCandidate = null;
         this.parameterHistory = [];
-        
-        // Create baseline for comparison
         this.baselineMaze = null;
         this.baselineDifficulty = 0;
         this.baselineSolutionPathLength = 0;
         
-        // Check if debug mode is enabled
         this.debugEnabled = this._isDebugEnabled();
         
-        // Initial debug logging
         this._debug('MazeOptimizer initialized', {
             config: this.config,
             parameterRanges: this.parameterRanges
@@ -52,15 +56,15 @@ class MazeOptimizer {
         let value = seed;
         return () => {
             // Linear Congruential Generator (Park-Miller variant)
-            // 16807 = 7^5, a prime number used as the multiplier
             value = (value * 16807) % 2147483647;
-            // 2147483647 = 2^31-1, a Mersenne prime used as the modulus
-            // (value-1)/2147483646 normalizes the result to range [0,1)
             return (value - 1) / 2147483646;
         };
     }
     
-    // Check if debug mode is enabled via URL parameter
+    /**
+     * Checks if debug mode is enabled through URL parameters
+     * Enable by adding ?debug or #?debug to the URL
+     */
     _isDebugEnabled() {
         // Check URL parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -76,7 +80,11 @@ class MazeOptimizer {
         return false;
     }
     
-    // Debug logging method
+    /**
+     * Logs debug messages when debug mode is enabled
+     * @param {string} message - Main message to log
+     * @param {object} data - Optional data object to log
+     */
     _debug(message, data = null) {
         if (!this.debugEnabled) return;
         
@@ -87,7 +95,13 @@ class MazeOptimizer {
         }
     }
     
-    // Generate a single candidate maze with the specified parameters
+    /**
+     * Generates a single candidate maze with specified parameters
+     * 
+     * @param {Object} params - Parameter set to use for generation
+     * @param {number} attemptNumber - Current attempt index (affects seed)
+     * @returns {Object} Candidate object with maze and metrics
+     */
     generateCandidate(params, attemptNumber) {
         // Create unique seed derived from base seed and attempt number
         const seed = this.config.baseSeed + attemptNumber;
@@ -97,7 +111,7 @@ class MazeOptimizer {
             params: params
         });
         
-        // Create a maze with the current parameters
+        // Create maze with enhanced generation algorithms
         const maze = new MazeApp.EnhancedMaze(
             this.config.width,
             this.config.height,
@@ -106,17 +120,14 @@ class MazeOptimizer {
             params
         );
         
-        // Generate the maze with enhanced algorithms
         maze.generate();
         
-        // Calculate the difficulty score
         const difficultyScore = maze.calculateDifficulty();
         
         this._debug(`Candidate #${attemptNumber} difficulty: ${difficultyScore.toFixed(2)}`, {
             difficultyBreakdown: maze.difficultyBreakdown
         });
         
-        // Store candidate information
         return {
             maze: maze,
             params: { ...params },
@@ -125,12 +136,16 @@ class MazeOptimizer {
         };
     }
     
-    // Generate baseline standard maze for comparison
+    /**
+     * Generates a standard maze to establish baseline metrics
+     * Used for comparison to determine if optimization improved the maze
+     * 
+     * @returns {Object} Standard maze or null if generation failed
+     */
     _generateBaseline() {
         this._debug('Generating baseline standard maze for comparison');
         
         try {
-            // Create a standard maze with the base seed
             const standardMaze = new MazeApp.Maze(
                 this.config.width,
                 this.config.height,
@@ -139,11 +154,8 @@ class MazeOptimizer {
             );
             standardMaze.generate();
             
-            // Calculate difficulty and store
             this.baselineMaze = standardMaze;
             this.baselineDifficulty = standardMaze.difficultyScore;
-            
-            // Store the baseline solution path length
             this.baselineSolutionPathLength = standardMaze.difficultyBreakdown.solutionPathLength;
             
             this._debug(`Baseline difficulty: ${this.baselineDifficulty.toFixed(2)}, path length: ${this.baselineSolutionPathLength}`, {
@@ -153,12 +165,18 @@ class MazeOptimizer {
             return standardMaze;
         } catch (error) {
             this._debug('Error generating baseline maze', { error: error.message });
-            // Return null to indicate failure
             return null;
         }
     }
     
-    // Sample parameters randomly within defined ranges
+    /**
+     * Intelligently samples maze generation parameters
+     * Uses uniform random sampling for first few attempts,
+     * then focuses around successful parameters with controlled variation
+     * 
+     * @param {number} attempt - Current attempt number
+     * @returns {Object} Parameter set to try
+     */
     sampleParameters(attempt) {
         // For initial attempts, use uniform random sampling
         if (attempt < 3 || this.parameterHistory.length < 2) {
@@ -173,8 +191,7 @@ class MazeOptimizer {
             return params;
         }
         
-        // For later attempts, focus around successful parameters with some variation
-        // Find the best candidate so far
+        // For later attempts, focus around successful parameters with controlled variation
         const sortedCandidates = [...this.candidates].sort((a, b) => 
             b.difficultyScore - a.difficultyScore
         );
@@ -182,7 +199,7 @@ class MazeOptimizer {
         const bestParams = sortedCandidates[0].params;
         this._debug(`Using best parameters as base for attempt #${attempt}`, bestParams);
         
-        // Add some random variation around the best parameters
+        // Add variation around the best parameters to explore nearby solution space
         const params = {
             wallRemovalFactor: this._perturbParameter(
                 bestParams.wallRemovalFactor, 
@@ -210,12 +227,25 @@ class MazeOptimizer {
         return params;
     }
     
-    // Helper for random value in range using seeded RNG
+    /**
+     * Generates a random value within a specified range using the seeded RNG
+     * 
+     * @param {Object} range - Object with min and max properties
+     * @returns {number} Random value within range
+     */
     _randomInRange(range) {
         return range.min + this.rng() * (range.max - range.min);
     }
     
-    // Helper to perturb a parameter within bounds using seeded RNG
+    /**
+     * Perturbs a parameter value within bounds while staying in valid range
+     * Controls the exploration vs exploitation tradeoff during optimization
+     * 
+     * @param {number} value - Current parameter value
+     * @param {Object} range - Valid range for parameter with min and max
+     * @param {number} variationFactor - How much to vary the parameter (0-1)
+     * @returns {number} New parameter value
+     */
     _perturbParameter(value, range, variationFactor) {
         const variation = (range.max - range.min) * variationFactor;
         const min = Math.max(range.min, value - variation);
@@ -223,20 +253,29 @@ class MazeOptimizer {
         return min + this.rng() * (max - min);
     }
     
-    // Main optimization method
+    /**
+     * Main optimization algorithm
+     * 
+     * Generates multiple candidate mazes and selects the best one based on:
+     * 1. Difficulty score
+     * 2. Solution path length
+     * 3. Weighted balance between the two
+     * 
+     * If the baseline maze is already excellent, optimization may be skipped.
+     * 
+     * @returns {Object} Best maze candidate or fallback if optimization failed
+     */
     optimize() {
         this._debug('Starting maze optimization process');
         this.candidates = [];
         
-        // Generate baseline standard maze for comparison
         try {
             this._generateBaseline();
             
-            // Skip optimization if baseline difficulty exceeds threshold
+            // Skip optimization if baseline is already excellent
             if (this.baselineDifficulty >= this.config.baselineSkipThreshold) {
                 this._debug(`Baseline difficulty (${this.baselineDifficulty.toFixed(2)}) exceeds ${this.config.baselineSkipThreshold}. Skipping optimization.`);
                 
-                // Return the baseline maze as the best candidate
                 return {
                     maze: this.baselineMaze,
                     params: {},
@@ -248,21 +287,15 @@ class MazeOptimizer {
             
             this._debug(`Planning to generate up to ${this.config.generationAttempts} candidates`);
             
+            // Main optimization loop - generate and evaluate candidate mazes
             for (let i = 0; i < this.config.generationAttempts; i++) {
-                // Sample parameters for this attempt
                 const params = this.sampleParameters(i);
                 
                 try {
-                    // Generate candidate maze with these parameters
                     const candidate = this.generateCandidate(params, i);
-                    
-                    // Get solution path length for this candidate
                     const candidatePathLength = candidate.maze.difficultyBreakdown.solutionPathLength;
                     
-                    // Store this candidate
                     this.candidates.push(candidate);
-                    
-                    // Keep track of parameter history
                     this.parameterHistory.push({
                         attempt: i,
                         params: { ...params },
@@ -270,7 +303,7 @@ class MazeOptimizer {
                         pathLength: candidatePathLength
                     });
                     
-                    // Only terminate early if we meet threshold AND have a longer solution path
+                    // Early termination if we find an excellent candidate
                     if (candidate.difficultyScore >= this.config.earlyTerminationThreshold && 
                         candidatePathLength > this.baselineSolutionPathLength) {
                         this._debug(`Early termination at attempt #${i} - score exceeds threshold and solution path is longer`, {
@@ -283,25 +316,22 @@ class MazeOptimizer {
                     }
                 } catch (error) {
                     this._debug(`Error generating candidate #${i}`, { error: error.message, params });
-                    // Continue with next candidate
-                    continue;
+                    continue; // Try next candidate
                 }
             }
             
-            // Select the best candidate based on the new rules
+            // Select the best candidate based on our scoring criteria
             this._selectBestCandidate();
             
-            // If no candidates were generated successfully, throw an error
             if (!this.bestCandidate) {
                 throw new Error('No valid maze candidates were generated');
             }
             
-            // Compare best candidate with baseline
+            // If the baseline is actually better, use it instead
             if (this.baselineDifficulty > this.bestCandidate.difficultyScore && 
                 this.baselineSolutionPathLength >= this.bestCandidate.maze.difficultyBreakdown.solutionPathLength) {
                 this._debug(`Baseline maze is better: difficulty (${this.baselineDifficulty.toFixed(2)}) > candidate (${this.bestCandidate.difficultyScore.toFixed(2)}) and path length is not shorter.`);
                 
-                // Return the baseline maze as the best candidate
                 return {
                     maze: this.baselineMaze,
                     params: {},
@@ -311,14 +341,13 @@ class MazeOptimizer {
                 };
             }
             
-            // Log final results
             this._logOptimizationResults();
-            
             return this.bestCandidate;
+            
         } catch (error) {
             this._debug('Optimization process failed', { error: error.message });
             
-            // If optimization fails, create a fallback standard maze
+            // Create a fallback standard maze if everything else fails
             const fallbackMaze = new MazeApp.Maze(
                 this.config.width,
                 this.config.height,
@@ -329,7 +358,6 @@ class MazeOptimizer {
             
             this._debug('Using fallback standard maze');
             
-            // Return a pseudo-candidate with the fallback maze
             return {
                 maze: fallbackMaze,
                 params: {},
@@ -340,11 +368,19 @@ class MazeOptimizer {
         }
     }
     
-    // New method to select the best candidate based on difficulty and path length
+    /**
+     * Selects the best maze candidate using a balanced scoring approach
+     * 
+     * Selection criteria prioritizes:
+     * 1. Candidates with longer solution paths than baseline
+     * 2. Composite score balancing difficulty and path length improvements
+     * 
+     * If no candidates have longer paths, falls back to highest difficulty
+     */
     _selectBestCandidate() {
         if (this.candidates.length === 0) return;
         
-        // Separate candidates into those with longer paths and those without
+        // Group candidates by whether they have longer paths than baseline
         const longerPathCandidates = this.candidates.filter(candidate => 
             candidate.maze.difficultyBreakdown.solutionPathLength > this.baselineSolutionPathLength
         );
@@ -352,8 +388,9 @@ class MazeOptimizer {
         this._debug(`Found ${longerPathCandidates.length} candidates with longer solution paths than baseline`);
         
         if (longerPathCandidates.length > 0) {
-            // We have candidates with longer paths, apply balanced scoring
+            // Calculate composite scores for candidates with longer paths
             longerPathCandidates.forEach(candidate => {
+                // Normalize improvements relative to baseline metrics
                 const pathLengthImprovement = 
                     (candidate.maze.difficultyBreakdown.solutionPathLength - this.baselineSolutionPathLength) / 
                     this.baselineSolutionPathLength;
@@ -362,7 +399,7 @@ class MazeOptimizer {
                     (candidate.difficultyScore - this.baselineDifficulty) / 
                     this.baselineDifficulty;
                 
-                // Calculate composite score with weighted balance
+                // Calculate composite score with path length vs difficulty weighting
                 candidate.compositeScore = 
                     (this.config.pathLengthWeight * pathLengthImprovement) + 
                     ((1 - this.config.pathLengthWeight) * difficultyImprovement);
@@ -375,13 +412,13 @@ class MazeOptimizer {
                 });
             });
             
-            // Sort by composite score
+            // Select candidate with highest composite score
             longerPathCandidates.sort((a, b) => b.compositeScore - a.compositeScore);
             this.bestCandidate = longerPathCandidates[0];
             
             this._debug(`Selected best balanced candidate with composite score: ${this.bestCandidate.compositeScore.toFixed(3)}`);
         } else {
-            // No candidates with longer paths, pick the one with highest difficulty
+            // Fall back to highest difficulty if no candidates have longer paths
             this.candidates.sort((a, b) => b.difficultyScore - a.difficultyScore);
             this.bestCandidate = this.candidates[0];
             
@@ -389,13 +426,16 @@ class MazeOptimizer {
         }
     }
     
-    // Log detailed optimization results
+    /**
+     * Logs detailed optimization results for analysis
+     * Only active when debug mode is enabled
+     */
     _logOptimizationResults() {
         if (!this.debugEnabled) return;
         
         console.group('%c[MazeOptimizer] Optimization Results', 'color: #0066cc; font-weight: bold; font-size: 14px;');
         
-        // Baseline comparison
+        // Calculate improvement metrics
         const difficultyImprovement = this.bestCandidate.difficultyScore - this.baselineDifficulty;
         const percentDifficultyImprovement = (difficultyImprovement / this.baselineDifficulty * 100).toFixed(2);
         
@@ -415,7 +455,7 @@ class MazeOptimizer {
             console.log(`Composite Score: ${this.bestCandidate.compositeScore.toFixed(3)}`);
         }
         
-        // Show difficulty breakdown comparison
+        // Detailed breakdown comparison
         console.group('Difficulty Breakdown Comparison:');
         
         if (this.baselineMaze && this.baselineMaze.difficultyBreakdown && 
@@ -437,7 +477,7 @@ class MazeOptimizer {
         
         console.groupEnd(); // End breakdown comparison
         
-        // Show parameter statistics
+        // Parameter statistics
         console.groupCollapsed('Parameter Statistics:');
         const stats = this.getParameterStatistics();
         for (const param in stats) {
@@ -445,7 +485,7 @@ class MazeOptimizer {
         }
         console.groupEnd(); // End parameter statistics
         
-        // Show all candidates
+        // All candidates in collapsed view
         console.groupCollapsed('All Candidates:');
         this.candidates.forEach((candidate, index) => {
             const pathLength = candidate.maze.difficultyBreakdown.solutionPathLength;
@@ -462,7 +502,7 @@ class MazeOptimizer {
         });
         console.groupEnd(); // End all candidates
         
-        // Show final selection
+        // Final selection summary
         console.log('%cFinal Selection:', 'font-weight: bold;');
         if (this.baselineDifficulty > this.bestCandidate.difficultyScore && 
             this.baselineSolutionPathLength >= this.bestCandidate.maze.difficultyBreakdown.solutionPathLength) {
@@ -474,16 +514,25 @@ class MazeOptimizer {
         console.groupEnd(); // End optimization results
     }
     
-    // Get the best maze found during optimization
+    /**
+     * Returns the best maze found during optimization
+     * @returns {Object} Best maze or null if optimization hasn't completed
+     */
     getBestMaze() {
         return this.bestCandidate ? this.bestCandidate.maze : null;
     }
     
-    // Get parameter statistics for analysis
+    /**
+     * Analyzes parameter effectiveness by calculating statistics and correlations
+     * Useful for understanding which parameters have the most impact on maze quality
+     * 
+     * @returns {Object} Statistics for each parameter including min/max/avg values 
+     *                   and correlation with difficulty score
+     */
     getParameterStatistics() {
         const stats = {};
         
-        // Calculate statistics for each parameter
+        // Calculate basic statistics for each parameter
         for (const param in this.parameterRanges) {
             const values = this.parameterHistory.map(record => record.params[param]);
             stats[param] = {
@@ -493,9 +542,8 @@ class MazeOptimizer {
             };
         }
         
-        // Add correlation with score
+        // Calculate correlations between parameters and difficulty score
         for (const param in this.parameterRanges) {
-            // Calculate correlation coefficient between parameter and score
             const paramValues = this.parameterHistory.map(record => record.params[param]);
             const scoreValues = this.parameterHistory.map(record => record.score);
             
@@ -505,7 +553,14 @@ class MazeOptimizer {
         return stats;
     }
     
-    // Helper to calculate correlation coefficient
+    /**
+     * Calculates Pearson correlation coefficient between two sets of values
+     * Used to determine how strongly parameters correlate with maze difficulty
+     * 
+     * @param {Array} xValues - First set of values
+     * @param {Array} yValues - Second set of values
+     * @returns {number} Correlation coefficient (-1 to 1) 
+     */
     _calculateCorrelation(xValues, yValues) {
         const n = xValues.length;
         if (n === 0) return 0;
@@ -514,7 +569,7 @@ class MazeOptimizer {
         const xMean = xValues.reduce((sum, x) => sum + x, 0) / n;
         const yMean = yValues.reduce((sum, y) => sum + y, 0) / n;
         
-        // Calculate numerator and denominators
+        // Calculate covariance and variances
         let numerator = 0;
         let xDenominator = 0;
         let yDenominator = 0;
@@ -527,13 +582,19 @@ class MazeOptimizer {
             yDenominator += yDiff * yDiff;
         }
         
-        // Handle division by zero
+        // Avoid division by zero
         if (xDenominator === 0 || yDenominator === 0) return 0;
         
         return numerator / Math.sqrt(xDenominator * yDenominator);
     }
     
-    // Generate a standard vs optimized maze comparison with the same seed
+    /**
+     * Creates a side-by-side comparison between standard and optimized mazes
+     * Useful for visualization, debugging, and analyzing optimization improvements
+     * 
+     * @param {Object} params - Optional parameters to use for the optimized maze
+     * @returns {Object} Object containing both standard and optimized mazes with metrics
+     */
     generateComparison(params) {
         // Create a standard maze with the base seed
         const standardMaze = new MazeApp.Maze(
@@ -561,7 +622,7 @@ class MazeOptimizer {
         );
         optimizedMaze.generate();
         
-        // Log comparison if debug is enabled
+        // Log comparison in debug mode
         this._debug('Standard vs Optimized Comparison', {
             standard: {
                 difficulty: standardMaze.difficultyScore,
@@ -575,7 +636,6 @@ class MazeOptimizer {
             improvement: (optimizedMaze.difficultyScore - standardMaze.difficultyScore).toFixed(2)
         });
         
-        // Return both mazes for comparison
         return {
             standard: {
                 maze: standardMaze,
@@ -592,10 +652,9 @@ class MazeOptimizer {
     }
 }
 
-// Add to MazeApp namespace
+// Register with MazeApp namespace if available, otherwise expose globally
 if (typeof MazeApp !== 'undefined') {
     MazeApp.MazeOptimizer = MazeOptimizer;
 } else {
-    // For testing or direct inclusion
     window.MazeOptimizer = MazeOptimizer;
 } 

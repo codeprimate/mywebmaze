@@ -1,26 +1,32 @@
-// Hard Mode Manager for Maze Application
+/**
+ * HardModeManager - Implements "fog of war" visibility for maze exploration
+ * 
+ * Creates a dynamic overlay that limits player visibility to a small area around
+ * their current position, gradually animating as they move through the maze.
+ * Uses SVG masks with radial gradients to create a smooth visibility boundary.
+ */
 class HardModeManager {
     constructor(svgElement) {
-        // Core state
+        // References to maze components
         this.enabled = true;
         this.overlay = null;
         this.maze = null;
         this.pathManager = null;
         this.svgElement = svgElement;
         
-        // Animation state tracking
+        // Animation state for smooth transitions between positions
         this.animation = {
-            active: false,
-            id: null,
-            startTime: null,
-            currentPos: { x: 0, y: 0 },
-            targetPos: { x: 0, y: 0 }
+            active: false,        // Whether animation is currently running
+            id: null,             // requestAnimationFrame ID for cancellation
+            startTime: null,      // Animation start timestamp
+            currentPos: { x: 0, y: 0 },  // Current center position
+            targetPos: { x: 0, y: 0 }    // Target position to animate towards
         };
         
         // Initialize from localStorage
         this._loadSavedState();
         
-        // Initialize debounced update function
+        // Initialize debounced update function to avoid excessive animations
         this.debouncedUpdateVisibleArea = this._debounce(() => {
             if (this.animation.active && this.animation.id) {
                 cancelAnimationFrame(this.animation.id);
@@ -37,7 +43,14 @@ class HardModeManager {
         }, 400);
     }
     
-    // Helper function for debouncing
+    /**
+     * Creates a debounced version of a function that delays execution
+     * until after wait milliseconds have elapsed since the last call
+     * 
+     * @param {Function} func - The function to debounce
+     * @param {number} wait - Milliseconds to wait before executing
+     * @returns {Function} Debounced function
+     */
     _debounce(func, wait) {
         let timeout;
         return function(...args) {
@@ -47,12 +60,23 @@ class HardModeManager {
         };
     }
     
-    // Cubic easing function for smooth animation (ease-in-out)
+    /**
+     * Cubic easing function that creates smooth accelerating/decelerating animations
+     * Progress gradually accelerates and then decelerates for natural movement feel
+     * 
+     * @param {number} t - Time progress from 0 to 1
+     * @returns {number} Eased progress value
+     */
     _easeInOutCubic(t) {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     }
     
-    // Initialize or update with a new maze
+    /**
+     * Connects this manager to a maze instance and resets animation state
+     * Called when a new maze is loaded or regenerated
+     * 
+     * @param {Object} maze - The maze object to manage visibility for
+     */
     setMaze(maze) {
         this.maze = maze;
         
@@ -71,12 +95,21 @@ class HardModeManager {
         }
     }
     
-    // Set the path manager reference
+    /**
+     * Sets reference to the path manager to track player movement
+     * 
+     * @param {Object} pathManager - The path manager object
+     */
     setPathManager(pathManager) {
         this.pathManager = pathManager;
     }
     
-    // Toggle hard mode on/off
+    /**
+     * Toggles hard mode on/off and updates the UI accordingly
+     * Cancels any ongoing animations and resets overlay state
+     * 
+     * @returns {boolean} Current hard mode state after toggle
+     */
     toggle() {
         this.enabled = !this.enabled;
         this._saveState();
@@ -107,17 +140,29 @@ class HardModeManager {
         return this.enabled;
     }
     
-    // Check if hard mode is enabled
+    /**
+     * Returns whether hard mode is currently enabled
+     * 
+     * @returns {boolean} True if hard mode is enabled
+     */
     isEnabled() {
         return this.enabled;
     }
     
-    // Get padding value
+    /**
+     * Returns padding size used for SVG element calculations
+     * Consistent padding helps prevent visual artifacts at maze edges
+     * 
+     * @returns {number} Padding size in pixels
+     */
     _getPadding() {
         return 10; // Constant padding of 10px
     }
     
-    // Load saved state from localStorage
+    /**
+     * Loads hard mode preference from localStorage on initialization
+     * Defaults to enabled (true) if no saved preference exists
+     */
     _loadSavedState() {
         const savedHardMode = localStorage.getItem('hardModeEnabled');
         if (savedHardMode !== null) {
@@ -128,12 +173,18 @@ class HardModeManager {
         }
     }
     
-    // Save state to localStorage
+    /**
+     * Persists current hard mode state to localStorage
+     * Called whenever hard mode is toggled
+     */
     _saveState() {
         localStorage.setItem('hardModeEnabled', this.enabled.toString());
     }
     
-    // Update UI elements based on hard mode state
+    /**
+     * Updates UI elements to reflect current hard mode state
+     * Affects toggle button, container classes, and hard mode indicator
+     */
     _updateUIState() {
         // Update toggle button state
         const hardModeToggle = document.getElementById('hardModeToggle');
@@ -158,7 +209,10 @@ class HardModeManager {
         }
     }
     
-    // Remove the overlay from the SVG
+    /**
+     * Removes the hard mode overlay from the SVG
+     * Safe to call even if overlay doesn't exist
+     */
     _removeOverlay() {
         if (this.overlay && this.svgElement) {
             if (this.svgElement.contains(this.overlay)) {
@@ -168,7 +222,11 @@ class HardModeManager {
         }
     }
     
-    // Create or update the hard mode overlay
+    /**
+     * Creates or updates the hard mode overlay that restricts visibility
+     * 
+     * @param {boolean} visible - Whether to make the overlay visible
+     */
     updateOverlay(visible = true) {
         // Remove existing overlay if there is one
         this._removeOverlay();
@@ -205,7 +263,17 @@ class HardModeManager {
         }
     }
     
-    // Update the visible area around the path anchor
+    /**
+     * Updates the visible area around the current player position
+     * Called whenever the player moves to a new cell
+     * 
+     * Handles animation decisions and debouncing small movements:
+     * - First call establishes initial position without animation
+     * - Small movements are debounced to reduce flicker
+     * - Larger movements trigger smooth animations
+     * 
+     * @param {boolean} animate - Whether to animate the transition (default: true)
+     */
     updateVisibleArea(animate = true) {
         if (!this.enabled || !this.overlay || !this.maze || !this.pathManager) {
             return;
@@ -273,7 +341,12 @@ class HardModeManager {
         }
     }
     
-    // Draw the hard mode overlay with animation
+    /**
+     * Animation frame handler for smooth visibility transitions
+     * Uses cubic easing for natural movement feel
+     * 
+     * @param {number} timestamp - Current animation timestamp from requestAnimationFrame
+     */
     _animateHardModeOverlay(timestamp) {
         // If this is the first frame, store the start time
         if (!this.animation.startTime) {
@@ -315,7 +388,13 @@ class HardModeManager {
         }
     }
     
-    // Draw the hard mode overlay at the specified position
+    /**
+     * Draws the hard mode overlay with a circular cutout at the specified position
+     * Creates a radial mask with gradient edges for smooth visibility transition
+     * 
+     * @param {number} centerX - X coordinate of the visibility center in SVG space
+     * @param {number} centerY - Y coordinate of the visibility center in SVG space
+     */
     _drawHardModeOverlay(centerX, centerY) {
         if (!this.enabled || !this.overlay || !this.maze) {
             return;
@@ -376,12 +455,24 @@ class HardModeManager {
         this.overlay.appendChild(overlay);
     }
     
-    // Helper method to create SVG elements
+    /**
+     * Helper to create SVG elements with proper namespace
+     * 
+     * @param {string} type - The SVG element type (e.g., 'rect', 'circle', 'g')
+     * @returns {SVGElement} The created SVG element
+     */
     _createSvgElement(type) {
         return document.createElementNS('http://www.w3.org/2000/svg', type);
     }
     
-    // Create a blur filter for the overlay
+    /**
+     * Creates a Gaussian blur filter for softening overlay edges
+     * Blur amount scales with cell size for consistent visual effect
+     * 
+     * @param {string} id - ID to assign to the filter element
+     * @param {number} cellSize - Size of maze cells in pixels
+     * @returns {SVGFilterElement} The created filter element
+     */
     _createBlurFilter(id, cellSize) {
         const filter = this._createSvgElement('filter');
         filter.setAttribute('id', id);
@@ -402,7 +493,19 @@ class HardModeManager {
         return filter;
     }
     
-    // Create a mask for the overlay
+    /**
+     * Creates an SVG mask that reveals a circular area and hides the rest
+     * Used to create the "flashlight" effect in hard mode
+     * 
+     * @param {string} id - ID to assign to the mask element
+     * @param {number} width - SVG width
+     * @param {number} height - SVG height
+     * @param {number} centerX - Center X position of visible area
+     * @param {number} centerY - Center Y position of visible area
+     * @param {number} radius - Radius of visible area
+     * @param {SVGDefsElement} defs - SVG defs element to add gradient to
+     * @returns {SVGMaskElement} The created mask element
+     */
     _createMask(id, width, height, centerX, centerY, radius, defs) {
         const mask = this._createSvgElement('mask');
         mask.setAttribute('id', id);
@@ -433,7 +536,13 @@ class HardModeManager {
         return mask;
     }
     
-    // Create a gradient for the mask
+    /**
+     * Creates a radial gradient for smooth edge transition
+     * The gradient goes from black (center, invisible) to white (edge, visible)
+     * 
+     * @param {string} id - ID to assign to the gradient
+     * @returns {SVGRadialGradientElement} The created gradient element
+     */
     _createGradient(id) {
         const gradient = this._createSvgElement('radialGradient');
         gradient.setAttribute('id', id);
@@ -461,7 +570,14 @@ class HardModeManager {
         return gradient;
     }
     
-    // Clean up old SVG elements to prevent memory leaks
+    /**
+     * Removes old SVG elements to prevent memory leaks
+     * Retains a specified number of most recently created elements
+     * 
+     * @param {SVGElement} parent - Parent element containing elements to clean up
+     * @param {string} selector - CSS selector for elements to manage
+     * @param {number} keepCount - Number of most recent elements to keep
+     */
     _cleanupOldElements(parent, selector, keepCount) {
         const elements = parent.querySelectorAll(selector);
         if (elements.length > keepCount) {
@@ -474,7 +590,10 @@ class HardModeManager {
         }
     }
     
-    // Handle maze completion (reveal full maze)
+    /**
+     * Special effect handler for when player completes the maze
+     * Creates a flash effect and reveals the full maze as a reward
+     */
     handleCompletion() {
         if (!this.enabled || !this.overlay || !this.svgElement) {
             return;
@@ -516,7 +635,10 @@ class HardModeManager {
         }, 100);
     }
     
-    // Clean up all resources
+    /**
+     * Cleans up all resources and animations
+     * Should be called when the maze component is destroyed
+     */
     cleanup() {
         // Cancel any ongoing animation
         if (this.animation.active && this.animation.id) {
@@ -534,7 +656,15 @@ class HardModeManager {
         this._removeOverlay();
     }
     
-    // Check if a cell is visible in hard mode
+    /**
+     * Determines if a specific cell should be visible in hard mode
+     * Cells within a certain Manhattan distance of the current position are visible
+     * 
+     * @param {Object} cell - The cell to check for visibility
+     * @param {number} cell.row - Row index of the cell
+     * @param {number} cell.col - Column index of the cell
+     * @returns {boolean} True if the cell should be visible
+     */
     isCellVisible(cell) {
         // If hard mode is not enabled, all cells are visible
         if (!this.enabled) {

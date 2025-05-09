@@ -1,23 +1,24 @@
-// The main.js file for the maze app
-// This is responsible for initializing all components and coordinating them
-
-// Use the MazeApp API from the global scope
+/**
+ * Main application entry point for MyWebMaze
+ * Dependencies:
+ * - MazeUI global object with init() method
+ * - DOM elements with IDs: 'current-year', 'maze-activity-tracker'
+ */
 (function() {
-    // Initialize when page loads
     document.addEventListener('DOMContentLoaded', () => {
-        // Create debug information display
         console.log('MyWebMaze initializing...');
         
-        // Set current year in copyright footer
+        // Update copyright year in footer
         document.getElementById('current-year').textContent = new Date().getFullYear();
         
-        // Initialize the maze UI
+        // Initialize maze interface - renders puzzle and establishes event handlers
         MazeUI.init();
         
-        // Ensure the activity tracker is initially in a clean state
+        // Reset activity tracker UI state
+        // Note: This ensures the 'completed' class is removed if the page is reloaded
+        // after a previous completion
         const activityTracker = document.getElementById('maze-activity-tracker');
         if (activityTracker) {
-            // Make sure solving view is shown initially
             activityTracker.classList.remove('completed');
         }
     });

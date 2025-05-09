@@ -1,23 +1,47 @@
-// Maze Generator UI Module
+/**
+ * MazeUI - User interface module for maze generation and interaction
+ *
+ * Handles all UI-related functionality including:
+ * - Maze rendering and viewport management
+ * - Interactive resizing (drag, pinch, wheel)
+ * - Touch/mobile support
+ * - Maze export (SVG, PNG, PDF)
+ * - User input validation
+ * - URL state management
+ *
+ * Depends on MazeApp core module for maze generation and PathManager for solving.
+ */
 const MazeUI = (function() {
-    // Private module variables
-    let _initialized = false;
-    let _maze = null;
-    let _mazeRenderer = null;
-    let _pathManager = null;
-    let _isDragging = false;
-    let _startX, _startY;
-    let _startWidth, _startHeight;
-    let _startCellX, _startCellY;
-    let _resizeTimeout = null;
-    let _proposedWidth, _proposedHeight, _proposedCellSize;
-    let _resizeOverlay = null;
-    let _hardModeManager = null;
-    let _isPinching = false;
-    let _pinchDistance = 0;
-    let _pinchIndicatorTimeout = null;
+    // Module state
+    let _initialized = false;        // Whether module has been initialized
+    let _maze = null;                // Current maze instance
+    let _mazeRenderer = null;        // Renderer for current maze
+    let _pathManager = null;         // Handles user path solving attempts
+    let _hardModeManager = null;     // Manages hard mode visibility/state
     
-    // Helper function for debouncing function calls
+    // Resize tracking state
+    let _isDragging = false;         // Whether user is currently dragging resize handle
+    let _startX, _startY;            // Mouse coordinates when drag started
+    let _startWidth, _startHeight;   // Maze dimensions when drag started
+    let _startCellX, _startCellY;    // Cell coordinates when drag started
+    let _resizeTimeout = null;       // For debouncing resize events
+    let _proposedWidth, _proposedHeight, _proposedCellSize;  // Pending dimensions before applying
+    let _resizeOverlay = null;       // Visual overlay during resize operations
+    
+    // Pinch zoom state
+    let _isPinching = false;         // Whether user is currently pinching
+    let _pinchDistance = 0;          // Initial distance between fingers
+    let _pinchIndicatorTimeout = null; // For auto-hiding pinch indicators
+    
+    /**
+     * Creates a debounced version of a function that delays execution until
+     * after a specified wait time has elapsed since the last call.
+     * Used to prevent excessive UI updates during rapid user interactions.
+     *
+     * @param {Function} func - The function to debounce
+     * @param {number} wait - Delay in milliseconds
+     * @return {Function} The debounced function
+     */
     function debounce(func, wait) {
         let timeout;
         return function(...args) {
@@ -27,7 +51,14 @@ const MazeUI = (function() {
         };
     }
     
-    // Helper function to get URL parameters
+    /**
+     * Checks if a parameter exists in the URL, either in the search params
+     * or after the hash fragment (e.g., #123?debug).
+     * Supports our dual parameter format for keeping seed in URL hash.
+     *
+     * @param {string} param - Parameter name to check for
+     * @return {boolean} True if parameter exists
+     */
     function getUrlParam(param) {
         // Check standard query parameters (before hash)
         const urlParams = new URLSearchParams(window.location.search);
@@ -45,43 +76,56 @@ const MazeUI = (function() {
         return false;
     }
     
-    // Get the padding value from the core module
+    /**
+     * Returns appropriate padding value based on screen size.
+     * Smaller screens get less padding to maximize maze area.
+     *
+     * @return {number} Padding value in pixels
+     */
     function getPadding() {
-        // Use a fixed padding that doesn't vary with cell size
-        // Reduce padding for very small screens
-        return window.innerWidth <= 350 ? 5 : 10; // Smaller padding for narrow screens
+        return window.innerWidth <= 350 ? 5 : 10;
     }
     
-    // Setup pinch-zoom functionality for cell resizing
+    /**
+     * Configures pinch-zoom gesture handling for mobile devices to resize maze cells.
+     * Supports dynamic, interactive control over cell size with real-time visual feedback.
+     * 
+     * Includes the following features:
+     * - Visual indicator showing current cell size
+     * - Debounced maze regeneration to prevent performance issues
+     * - Smooth transitions and animations for feedback
+     *
+     * @param {SVGElement} svgElement - The maze SVG container element
+     */
     function setupPinchZoom(svgElement) {
         const cellSizeInput = document.getElementById('cellSize');
         const pinchIndicator = document.getElementById('pinch-zoom-indicator');
         const currentCellSizeDisplay = document.getElementById('current-cell-size');
         
-        // Create a proper debounced function for pinch events
+        // Debounce regeneration to avoid performance issues during continuous pinch
         const debouncedPinchChange = debounce(() => {
             applyProposedDimensions();
         }, 500);
         
-        // Update the cell size display
+        // Updates the visual indicator with current cell size
         const updateCellSizeDisplay = (size) => {
             if (currentCellSizeDisplay) {
                 currentCellSizeDisplay.textContent = size;
             }
         };
         
-        // Show the pinch indicator with animation
+        // Shows pinch indicator with auto-hide after delay
         const showPinchIndicator = () => {
             if (!pinchIndicator) return;
             pinchIndicator.classList.add('active');
-            // Auto hide after 1.5 seconds
+            
             clearTimeout(_pinchIndicatorTimeout);
             _pinchIndicatorTimeout = setTimeout(() => {
                 pinchIndicator.classList.remove('active');
             }, 1500);
         };
         
-        // Calculate distance between two touch points
+        // Calculates Euclidean distance between two touch points
         const getDistance = (touch1, touch2) => {
             const dx = touch1.clientX - touch2.clientX;
             const dy = touch1.clientY - touch2.clientY;
@@ -173,7 +217,18 @@ const MazeUI = (function() {
         svgElement.addEventListener('touchcancel', endPinch);
     }
     
-    // Create resize handle for better mobile UX
+    /**
+     * Creates a visual resize handle in the bottom-right corner of the maze SVG.
+     * This handle provides a draggable UI element for resizing the maze dimensions
+     * with touch and mouse interactions.
+     * 
+     * Features:
+     * - Two diagonal lines indicating resize direction
+     * - Enlarged invisible touch target for mobile devices
+     * - Responsive sizing based on screen dimensions
+     *
+     * @param {SVGElement} svgElement - The maze SVG container element
+     */
     function createResizeHandle(svgElement) {
         // Remove existing handle if there is one
         const existingHandle = document.getElementById('resize-handle');
@@ -181,17 +236,17 @@ const MazeUI = (function() {
             svgElement.removeChild(existingHandle);
         }
         
-        // Create resize handle group
+        // Create SVG group for the handle
         const handleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         handleGroup.setAttribute('id', 'resize-handle');
         
-        // Calculate position (bottom-right corner)
+        // Position in bottom-right corner
         const svgWidth = parseFloat(svgElement.getAttribute('width'));
         const svgHeight = parseFloat(svgElement.getAttribute('height'));
         const x = svgWidth - getPadding();
         const y = svgHeight - getPadding();
         
-        // Create diagonal line
+        // Create first diagonal resize indicator line
         const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line1.setAttribute('x1', x - 15);
         line1.setAttribute('y1', y);
@@ -200,7 +255,7 @@ const MazeUI = (function() {
         line1.setAttribute('stroke', '#333');
         line1.setAttribute('stroke-width', '2');
         
-        // Create second diagonal line
+        // Create second (shorter) diagonal line
         const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line2.setAttribute('x1', x - 8);
         line2.setAttribute('y1', y);
@@ -209,10 +264,9 @@ const MazeUI = (function() {
         line2.setAttribute('stroke', '#333');
         line2.setAttribute('stroke-width', '2');
         
-        // Create invisible hit area for better touch targeting
-        // Make hit area larger on small screens
+        // Invisible hit area with larger target for touch devices
         const isSmallScreen = window.innerWidth <= 480;
-        const hitAreaSize = isSmallScreen ? 35 : 25;
+        const hitAreaSize = isSmallScreen ? 35 : 25;  // Larger for small screens
         const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         hitArea.setAttribute('x', x - hitAreaSize);
         hitArea.setAttribute('y', y - hitAreaSize);
@@ -221,37 +275,45 @@ const MazeUI = (function() {
         hitArea.setAttribute('fill', 'transparent');
         hitArea.setAttribute('stroke', 'transparent');
         
-        // Add all elements to the group
+        // Build and add handle to SVG
         handleGroup.appendChild(line1);
         handleGroup.appendChild(line2);
         handleGroup.appendChild(hitArea);
-        
-        // Add to SVG
         svgElement.appendChild(handleGroup);
     }
     
-    // Update maze information display without regenerating the maze
+    /**
+     * Updates the maze information display with current dimensions and estimated difficulty.
+     * Called during resize preview to provide immediate feedback without regenerating the maze.
+     * 
+     * This function:
+     * - Formats dimensions differently based on screen size 
+     * - Estimates difficulty score based on maze size (since actual score requires generation)
+     * - Adds visual indication that difficulty is an estimate during resize
+     *
+     * @param {number} width - Maze width in cells
+     * @param {number} height - Maze height in cells  
+     * @param {number} cellSize - Size of each cell in pixels
+     */
     function updateMazeInfoDisplay(width, height, cellSize) {
-        // Update dimensions display
+        // Format and display dimensions
         const dimensionsElement = document.getElementById('dimensions');
         if (dimensionsElement) {
-            // Use more compact format for small screens
             const isSmallScreen = window.innerWidth <= 480;
             dimensionsElement.textContent = isSmallScreen ? 
                 `${width}×${height} (${cellSize}px)` : 
                 `${cellSize} × (${width}×${height})`;
         }
         
-        // We can't update the exact difficulty score without regenerating the maze,
-        // but we can provide an estimate based on maze size
+        // Update difficulty with rough estimate based on size
         const difficultyElement = document.getElementById('difficulty-score');
         if (difficultyElement) {
-            // Estimate difficulty based on size (simple approximation)
+            // Simple heuristic: maze area / 50 (capped between 1-100)
             const estimatedDifficulty = Math.min(100, Math.max(1, 
                 Math.round((width * height) / 50)
             ));
             
-            // Use size-based label
+            // Map numeric score to difficulty label
             let difficultyLabel = "Easy";
             if (estimatedDifficulty > 80) difficultyLabel = "Very Hard";
             else if (estimatedDifficulty > 60) difficultyLabel = "Hard";
@@ -260,43 +322,55 @@ const MazeUI = (function() {
             else difficultyLabel = "-";
             
             difficultyElement.textContent = `Difficulty: ${difficultyLabel}`;
-            // Add a subtle indication that this is an estimate during resize
-            difficultyElement.classList.add('estimated');
+            difficultyElement.classList.add('estimated');  // Visual indicator this is an estimate
         }
     }
     
-    // Create or update the resize overlay to visualize proposed dimensions
+    /**
+     * Creates or updates the visual overlay displayed during maze resizing.
+     * Provides real-time visual preview of proposed maze dimensions before applying.
+     * 
+     * The overlay includes:
+     * - Semi-transparent background rectangle showing maze area
+     * - Dashed grid lines to visualize cell structure
+     * - Text displaying current dimensions
+     * - Immediate SVG resizing for smooth UX
+     *
+     * @param {SVGElement} svgElement - The maze SVG container element
+     * @param {number} width - Proposed maze width in cells
+     * @param {number} height - Proposed maze height in cells
+     * @param {number} cellSize - Proposed cell size in pixels
+     */
     function updateResizeOverlay(svgElement, width, height, cellSize) {
-        // Calculate total dimensions with padding
+        // Calculate total SVG dimensions including padding
         const padding = getPadding();
         const totalWidth = width * cellSize + (padding * 2);
         const totalHeight = height * cellSize + (padding * 2);
         
-        // Update SVG size immediately for smooth resizing
+        // Resize SVG container immediately for responsive feel
         svgElement.setAttribute('width', totalWidth);
         svgElement.setAttribute('height', totalHeight);
         
-        // Create or reuse overlay group
+        // Create or clear existing overlay group
         if (!_resizeOverlay) {
             _resizeOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             _resizeOverlay.setAttribute('id', 'resize-overlay');
             svgElement.appendChild(_resizeOverlay);
         } else {
-            // Clear existing overlay children
             while (_resizeOverlay.firstChild) {
                 _resizeOverlay.removeChild(_resizeOverlay.firstChild);
             }
         }
         
-        // Store the proposed dimensions
+        // Store proposed dimensions for later application
         _proposedWidth = width;
         _proposedHeight = height;
         _proposedCellSize = cellSize;
         
-        // Update maze information display
+        // Update info display with new dimensions
         updateMazeInfoDisplay(width, height, cellSize);
         
-        // Create background rectangle
+        // Draw background rectangle showing maze area
         const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         bgRect.setAttribute('x', padding);
         bgRect.setAttribute('y', padding);
@@ -307,14 +381,12 @@ const MazeUI = (function() {
         bgRect.setAttribute('stroke-width', '2');
         bgRect.setAttribute('stroke-dasharray', '5,5');
         
-        // Create grid lines (simplified, only show major lines)
+        // Create grid visualization with adaptive spacing based on maze size
         const gridGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        
-        // Determine grid line spacing based on grid size
         const verticalStep = Math.max(1, Math.ceil(width / 20));
         const horizontalStep = Math.max(1, Math.ceil(height / 20));
         
-        // Draw vertical lines
+        // Draw vertical grid lines
         for (let i = 0; i <= width; i += verticalStep) {
             const x = padding + i * cellSize;
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -328,7 +400,7 @@ const MazeUI = (function() {
             gridGroup.appendChild(line);
         }
         
-        // Draw horizontal lines
+        // Draw horizontal grid lines
         for (let i = 0; i <= height; i += horizontalStep) {
             const y = padding + i * cellSize;
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -342,7 +414,7 @@ const MazeUI = (function() {
             gridGroup.appendChild(line);
         }
         
-        // Add dimension text
+        // Add dimensions text label
         const dimensionText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         dimensionText.setAttribute('x', padding + 10);
         dimensionText.setAttribute('y', padding + 20);
@@ -356,10 +428,22 @@ const MazeUI = (function() {
         _resizeOverlay.appendChild(dimensionText);
     }
     
-    // Apply the proposed dimensions and generate the maze
+    /**
+     * Applies the proposed dimensions from resize operations to generate a new maze.
+     * Checks if dimensions have actually changed before regenerating to avoid
+     * unnecessary processing and ensures proper cleanup of temporary elements.
+     * 
+     * This function:
+     * - Validates proposed dimensions exist
+     * - Updates form input values
+     * - Cleans up resize overlay
+     * - Only regenerates maze if dimensions changed
+     * - Updates UI state to remove "estimated" markers
+     */
     function applyProposedDimensions() {
+        // Bail out if no proposed dimensions are set
         if (!_proposedWidth || !_proposedHeight || !_proposedCellSize) {
-            return; // Nothing to apply
+            return;
         }
         
         const widthInput = document.getElementById('width');
@@ -367,10 +451,10 @@ const MazeUI = (function() {
         const cellSizeInput = document.getElementById('cellSize');
         
         if (!widthInput || !heightInput || !cellSizeInput) {
-            return; // Missing inputs
+            return;
         }
         
-        // Check if dimensions actually changed
+        // Check if dimensions actually changed from current values
         const currentWidth = parseInt(widthInput.value, 10);
         const currentHeight = parseInt(heightInput.value, 10);
         const currentCellSize = parseInt(cellSizeInput.value, 10);
@@ -382,12 +466,12 @@ const MazeUI = (function() {
         );
         
         if (hasChanged) {
-            // Update form inputs
+            // Update form inputs with new values
             widthInput.value = _proposedWidth;
             heightInput.value = _proposedHeight;
             cellSizeInput.value = _proposedCellSize;
             
-            // Clean up the overlay before generating
+            // Remove resize overlay
             if (_resizeOverlay) {
                 const svgElement = document.getElementById('maze');
                 if (svgElement && svgElement.contains(_resizeOverlay)) {
@@ -396,16 +480,16 @@ const MazeUI = (function() {
                 _resizeOverlay = null;
             }
             
-            // Remove the "estimated" class from difficulty display
+            // Reset difficulty display styling
             const difficultyElement = document.getElementById('difficulty-score');
             if (difficultyElement) {
                 difficultyElement.classList.remove('estimated');
             }
             
-            // Generate the maze with new dimensions
+            // Generate new maze with updated dimensions
             MazeController.generateMaze();
         } else {
-            // Just clean up the overlay if dimensions didn't change
+            // Just clean up the overlay when dimensions didn't change
             if (_resizeOverlay) {
                 const svgElement = document.getElementById('maze');
                 if (svgElement && svgElement.contains(_resizeOverlay)) {
@@ -414,7 +498,7 @@ const MazeUI = (function() {
                 _resizeOverlay = null;
             }
             
-            // Remove the "estimated" class from difficulty display
+            // Reset difficulty display styling
             const difficultyElement = document.getElementById('difficulty-score');
             if (difficultyElement) {
                 difficultyElement.classList.remove('estimated');
@@ -422,9 +506,26 @@ const MazeUI = (function() {
         }
     }
     
-    // Main controller for maze operations
+    /**
+     * Main controller object that manages maze generation, state management,
+     * and all maze-related UI operations. Provides public methods that are
+     * exposed via the module's API.
+     * 
+     * Responsibilities:
+     * - Managing URL/hash state for seeds
+     * - Maze generation with parameter validation
+     * - UI updates based on maze state
+     * - Download/export functionality
+     * - Event listener setup
+     * - Input handling
+     */
     const MazeController = {
-        // Update URL hash with current seed
+        /**
+         * Updates the URL hash with the current maze seed while preserving
+         * any query parameters that may follow the hash.
+         * 
+         * @param {number} seed - The maze seed value to store in URL
+         */
         updateUrlHash(seed) {
             // Preserve any query parameters after the hash
             const hashParts = window.location.hash.split('?');
@@ -432,25 +533,53 @@ const MazeUI = (function() {
             window.location.hash = newHash;
         },
         
-        // Get seed from URL hash
+        /**
+         * Extracts the maze seed from the URL hash, handling cases where
+         * the hash might contain additional query parameters.
+         * 
+         * @returns {number|null} The seed value as a number, or null if not present/valid
+         */
         getSeedFromHash() {
-            // Extract just the seed part from the hash (before any query params)
             const hashParts = window.location.hash.substring(1).split('?');
             const seedPart = hashParts[0];
             return seedPart ? parseInt(seedPart, 10) : null;
         },
         
-        // Generate a random seed number
+        /**
+         * Generates a random seed value for maze generation.
+         * 
+         * @returns {number} A random integer between 0 and 999999
+         */
         generateRandomSeed() {
             return Math.floor(Math.random() * 1000000);
         },
         
-        // Validate input values
+        /**
+         * Validates that an input value is within acceptable bounds.
+         * Used for validating maze dimensions and cell size.
+         * 
+         * @param {number} value - The value to validate
+         * @param {number} min - Minimum acceptable value (inclusive)
+         * @param {number} max - Maximum acceptable value (inclusive)
+         * @returns {boolean} True if value is valid, false otherwise
+         */
         isValidInput(value, min, max) {
             return !isNaN(value) && value >= min && value <= max;
         },
         
-        // Generate a new maze with current parameters
+        /**
+         * Core function that generates a new maze using current form parameters.
+         * 
+         * Process:
+         * 1. Extracts and validates maze parameters from form inputs
+         * 2. Determines whether to use standard or optimized generation algorithm
+         * 3. Creates the maze instance and renders it
+         * 4. Resets any existing path tracking/UI state
+         * 5. Updates related displays (dimensions, difficulty)
+         * 6. Sets up resize handle and hard mode if enabled
+         * 
+         * Form inputs are automatically sanitized and corrected if invalid.
+         */
         generateMaze() {
             const widthInput = document.getElementById('width');
             const heightInput = document.getElementById('height');
@@ -1152,7 +1281,19 @@ const MazeUI = (function() {
         }
     };
     
-    // Calculate optimal maze dimensions based on viewport size
+    /**
+     * Calculates optimal maze dimensions based on current viewport size.
+     * Creates a responsive layout by adjusting cell size and maze dimensions
+     * according to screen size breakpoints.
+     * 
+     * Features:
+     * - Adapts dimensions for phones, tablets, and desktops
+     * - Maintains reasonable cell density for playability
+     * - Ensures proper aspect ratio based on available space
+     * - Adjusts cell size to maintain readability on small screens
+     * 
+     * @returns {Object} Object containing width, height, and cellSize properties
+     */
     function calculateOptimalDimensions() {
         // Define screen size breakpoints
         const SCREEN = {
@@ -1256,6 +1397,19 @@ const MazeUI = (function() {
         return { width, height, cellSize };
     }
     
+    /**
+     * Initializes the MazeUI module and sets up the initial maze.
+     * This is the main entry point called from the application.
+     * 
+     * Initialization sequence:
+     * 1. Prevents repeated initialization
+     * 2. Waits for MazeApp core module to initialize
+     * 3. Sets up the renderer and hard mode manager
+     * 4. Attaches all event listeners
+     * 5. Extracts or creates seed from URL hash
+     * 6. Calculates optimal dimensions for current device
+     * 7. Generates the initial maze
+     */
     function init() {
         if (_initialized) return;
         
