@@ -1309,6 +1309,12 @@ class PathManager {
             return;
         }
         
+        // Stop timer if active - do this first to prevent any updates during reset
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        
         // Reset timer display
         timerElement.textContent = '00:00';
         
@@ -1329,16 +1335,21 @@ class PathManager {
         activityTracker.classList.remove('completed');
         
         // Reset activity tracking data
-        this.maze.userActivity.startTime = null;
-        this.maze.userActivity.completionTime = null;
-        this.maze.userActivity.duration = null;
-        this.maze.userActivity.active = false;
-        this.maze.userActivity.completed = false;
-        
-        // Stop timer if active
-        if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-            this.timerInterval = null;
+        if (this.maze.userActivity) {
+            this.maze.userActivity.startTime = null;
+            this.maze.userActivity.completionTime = null;
+            this.maze.userActivity.duration = null;
+            this.maze.userActivity.active = false;
+            this.maze.userActivity.completed = false;
+            this.maze.userActivity.uniqueCellsVisited = new Set();
+            this.maze.userActivity.totalCellsVisited = 0;
+            this.maze.userActivity.pathTrace = [];
+            this.maze.userActivity.score = 0;
+            this.maze.userActivity.scoreComponents = {
+                efficiency: 0,
+                time: 0,
+                exploration: 0
+            };
         }
         
         // Update hidden elements for potential JS interop
@@ -2287,6 +2298,15 @@ class PathManager {
         
         window.removeEventListener('deviceorientation', this.handleDeviceTilt);
         this.tiltConfig.enabled = false;
+        
+        // Reset the tilt config's last move timestamp to ensure no delayed movements
+        this.tiltConfig.lastMove = 0;
+        
+        // Clear any dampening samples
+        if (this.tiltConfig.dampening && this.tiltConfig.dampening.samples) {
+            this.tiltConfig.dampening.samples = [null, null, null];
+            this.tiltConfig.dampening.currentIndex = 0;
+        }
         
         this.debug('Tilt controls disabled', 'info');
     }

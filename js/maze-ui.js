@@ -465,44 +465,35 @@ const MazeUI = (function() {
             _proposedCellSize !== currentCellSize
         );
         
+        // First, always clean up the resize overlay
+        if (_resizeOverlay) {
+            const svgElement = document.getElementById('maze');
+            if (svgElement && svgElement.contains(_resizeOverlay)) {
+                svgElement.removeChild(_resizeOverlay);
+            }
+            _resizeOverlay = null;
+        }
+        
+        // Reset difficulty display styling
+        const difficultyElement = document.getElementById('difficulty-score');
+        if (difficultyElement) {
+            difficultyElement.classList.remove('estimated');
+        }
+        
         if (hasChanged) {
             // Update form inputs with new values
             widthInput.value = _proposedWidth;
             heightInput.value = _proposedHeight;
             cellSizeInput.value = _proposedCellSize;
             
-            // Remove resize overlay
-            if (_resizeOverlay) {
-                const svgElement = document.getElementById('maze');
-                if (svgElement && svgElement.contains(_resizeOverlay)) {
-                    svgElement.removeChild(_resizeOverlay);
-                }
-                _resizeOverlay = null;
-            }
-            
-            // Reset difficulty display styling
-            const difficultyElement = document.getElementById('difficulty-score');
-            if (difficultyElement) {
-                difficultyElement.classList.remove('estimated');
+            // Ensure any active timer is stopped before generating a new maze
+            if (_pathManager && _pathManager.timerInterval) {
+                clearInterval(_pathManager.timerInterval);
+                _pathManager.timerInterval = null;
             }
             
             // Generate new maze with updated dimensions
             MazeController.generateMaze();
-        } else {
-            // Just clean up the overlay when dimensions didn't change
-            if (_resizeOverlay) {
-                const svgElement = document.getElementById('maze');
-                if (svgElement && svgElement.contains(_resizeOverlay)) {
-                    svgElement.removeChild(_resizeOverlay);
-                }
-                _resizeOverlay = null;
-            }
-            
-            // Reset difficulty display styling
-            const difficultyElement = document.getElementById('difficulty-score');
-            if (difficultyElement) {
-                difficultyElement.classList.remove('estimated');
-            }
         }
     }
     
@@ -620,13 +611,22 @@ const MazeUI = (function() {
             
             // Reset any existing activity tracking UI
             if (_pathManager) {
+                // Stop any active timer
                 if (_pathManager.timerInterval) {
                     clearInterval(_pathManager.timerInterval);
                     _pathManager.timerInterval = null;
                 }
                 
+                // Ensure the path is reset first to clear any completion state
+                _pathManager.resetPath();
+                
                 // Call resetActivityUI to properly reset timer and activity tracking
                 _pathManager.resetActivityUI();
+                
+                // Ensure the maze state is not marked as completed
+                if (_maze) {
+                    _maze.isCompleted = false;
+                }
             }
             
             // Initialize path manager for the new maze
