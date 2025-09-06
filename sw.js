@@ -1,7 +1,5 @@
 // Service Worker for My Web Maze - Offline Support
-const CACHE_NAME = 'maze-gen-v1.0.0';
-const STATIC_CACHE_NAME = 'maze-gen-static-v1.0.0';
-const DYNAMIC_CACHE_NAME = 'maze-gen-dynamic-v1.0.0';
+const CACHE_NAME = 'maze-gen-v1.0.1';
 
 // Resources to cache immediately
 const STATIC_ASSETS = [
@@ -25,17 +23,17 @@ self.addEventListener('install', (event) => {
   console.log('Service Worker: Installing...');
   
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME)
+    caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Service Worker: Caching static assets');
+        console.log('Service Worker: Caching assets');
         return cache.addAll(STATIC_ASSETS);
       })
       .then(() => {
-        console.log('Service Worker: Static assets cached successfully');
+        console.log('Service Worker: Assets cached successfully');
         return self.skipWaiting();
       })
       .catch((error) => {
-        console.error('Service Worker: Failed to cache static assets', error);
+        console.error('Service Worker: Failed to cache assets', error);
       })
   );
 });
@@ -50,9 +48,7 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             // Delete old caches that don't match current version
-            if (cacheName !== STATIC_CACHE_NAME && 
-                cacheName !== DYNAMIC_CACHE_NAME &&
-                cacheName.startsWith('maze-gen-')) {
+            if (cacheName !== CACHE_NAME && cacheName.startsWith('maze-gen-')) {
               console.log('Service Worker: Deleting old cache', cacheName);
               return caches.delete(cacheName);
             }
@@ -102,12 +98,8 @@ self.addEventListener('fetch', (event) => {
             // Clone the response for caching
             const responseToCache = response.clone();
             
-            // Determine which cache to use
-            const cacheName = STATIC_ASSETS.includes(url.pathname) ? 
-              STATIC_CACHE_NAME : DYNAMIC_CACHE_NAME;
-            
             // Cache the response
-            caches.open(cacheName)
+            caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(request, responseToCache);
                 console.log('Service Worker: Cached new resource', request.url);

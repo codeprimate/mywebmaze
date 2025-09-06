@@ -53,25 +53,19 @@
             </div>
             -->
             
-            <div class="maze-controls-container">
-                <div class="hard-mode-toggle">
-                    <label class="switch" for="hardModeToggle">
-                        <input type="checkbox" id="hardModeToggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                    <label for="hardModeToggle">Hard Mode</label>
-                </div>
-                
-                <!-- Tilt controls toggle - mobile only -->
-                <div class="tilt-controls-toggle">
-                    <label class="switch" for="tiltControlsToggle">
-                        <input type="checkbox" id="tiltControlsToggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                    <label for="tiltControlsToggle">Tilt</label>
-                </div>
-            </div>
-            
+           
+        </div>
+        
+        <section class="maze-container" aria-label="Interactive maze">
+            <svg id="maze" width="402" height="402" aria-label="Maze puzzle"></svg>
+        </section>
+        
+        <div id="pinch-zoom-indicator" class="pinch-zoom-indicator" aria-live="polite">Cell Size: <span id="current-cell-size">20</span></div>
+        
+        <div id="debug-info" class="debug-info" aria-hidden="true"></div>
+
+        <div class="content-wrapper">
+
             <div id="maze-activity-tracker" class="maze-ui-component">
                 <div class="solving-view">
                     <span id="maze-status">Ready</span>
@@ -110,17 +104,25 @@
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <section class="maze-container" aria-label="Interactive maze">
-            <svg id="maze" width="402" height="402" aria-label="Maze puzzle"></svg>
-        </section>
-        
-        <div id="pinch-zoom-indicator" class="pinch-zoom-indicator" aria-live="polite">Cell Size: <span id="current-cell-size">20</span></div>
-        
-        <div id="debug-info" class="debug-info" aria-hidden="true"></div>
-        
-        <div class="content-wrapper">
+
+            <div class="maze-controls-container">
+                <div class="hard-mode-toggle">
+                    <label class="switch" for="hardModeToggle">
+                        <input type="checkbox" id="hardModeToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <label for="hardModeToggle">Hard Mode</label>
+                </div>
+                
+                <!-- Tilt controls toggle - mobile only -->
+                <div class="tilt-controls-toggle">
+                    <label class="switch" for="tiltControlsToggle">
+                        <input type="checkbox" id="tiltControlsToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <label for="tiltControlsToggle">Tilt</label>
+                </div>
+            </div>
 
             <section class="controls" role="toolbar" aria-label="Download options">
                 <button id="downloadBtn" title="Download SVG">
