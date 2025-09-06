@@ -4,9 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Interactive maze generator with customizable size and downloadable options">
+    <meta name="theme-color" content="#4285F4">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="My Web Maze">
+    <meta name="msapplication-TileColor" content="#4285F4">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    
     <title>My Web Maze</title>
-    <link rel="stylesheet" href="css/maze.css">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicon and Icons -->
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="assets/images/screenshot.png">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/maze.css">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="js/maze-core.js" as="script">
+    <link rel="preload" href="lib/rough.js" as="script">
+    <link rel="preload" href="assets/fonts/NanumPenScript-Regular.ttf" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
     <header>
@@ -25,11 +45,13 @@
 
     <main>
         <div class="content-wrapper">
+            <!--
             <div class="dimensions-display" aria-live="polite">
                 <span id="dimensions"></span>
                 &mdash;
                 <span id="difficulty-score" class="difficulty-score"></span>
             </div>
+            -->
             
             <div class="maze-controls-container">
                 <div class="hard-mode-toggle">
@@ -99,6 +121,7 @@
         <div id="debug-info" class="debug-info" aria-hidden="true"></div>
         
         <div class="content-wrapper">
+
             <section class="controls" role="toolbar" aria-label="Download options">
                 <button id="downloadBtn" title="Download SVG">
                     <svg class="reload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -169,7 +192,7 @@
         </a>
     </footer>
 
-    <!-- Load all dependencies in the correct order with traditional script tags -->
+    <!-- Scripts -->
     <script src="lib/rough.js"></script>
     <script src="lib/jspdf.umd.min.js"></script>
     <script src="js/maze-core.js"></script>
@@ -179,6 +202,7 @@
     <script src="js/maze-hard-mode.js"></script>
     <script src="js/maze-ui.js"></script>
     <script src="js/maze-path-manager.js"></script>
+    <script src="js/pwa-manager.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html> 

@@ -1,0 +1,26 @@
+{
+  "name": "My Web Maze",
+  "short_name": "MazeGen",
+  "description": "Interactive maze generator with customizable size and downloadable options",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4285F4",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "assets/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "assets/images/screenshot.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment", "education"],
+  "lang": "en",
+  "dir": "ltr"
+}
