@@ -1328,15 +1328,15 @@ const MazeUI = (function() {
             heightMultiplier: viewportWidth <= SCREEN.VERY_SMALL ? 0.8 :
                              viewportWidth < SCREEN.SMALL ? 0.85 : 0.88,
             
-            // Minimum cell sizes
-            minCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 8 : 
-                        viewportWidth < SCREEN.SMALL ? 10 :
-                        viewportWidth < SCREEN.MEDIUM ? 12 : 14,
+            // Minimum cell sizes - increased by 20%
+            minCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 10 : 
+                        viewportWidth < SCREEN.SMALL ? 12 :
+                        viewportWidth < SCREEN.MEDIUM ? 15 : 17,
             
-            // Maximum cell sizes - slightly increased but still conservative
-            maxCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 18 : 
-                        viewportWidth < SCREEN.SMALL ? 22 :
-                        viewportWidth < SCREEN.MEDIUM ? 28 : 32,
+            // Maximum cell sizes - increased by 20%
+            maxCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 22 : 
+                        viewportWidth < SCREEN.SMALL ? 27 :
+                        viewportWidth < SCREEN.MEDIUM ? 34 : 39,
             
             // Cell size divisor for different screen sizes - adjusted for better fit
             cellSizeDivisor: viewportWidth <= SCREEN.VERY_SMALL ? 14 : 
