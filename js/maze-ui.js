@@ -609,24 +609,11 @@ const MazeUI = (function() {
             
             _mazeRenderer.render(_maze);
             
-            // Reset any existing activity tracking UI
+            // Clean up any existing path manager to prevent conflicts
             if (_pathManager) {
-                // Stop any active timer
-                if (_pathManager.timerInterval) {
-                    clearInterval(_pathManager.timerInterval);
-                    _pathManager.timerInterval = null;
-                }
-                
-                // Ensure the path is reset first to clear any completion state
-                _pathManager.resetPath();
-                
-                // Call resetActivityUI to properly reset timer and activity tracking
-                _pathManager.resetActivityUI();
-                
-                // Ensure the maze state is not marked as completed
-                if (_maze) {
-                    _maze.isCompleted = false;
-                }
+                // Properly destroy the old instance to prevent memory leaks and conflicts
+                _pathManager.destroy();
+                _pathManager = null;
             }
             
             // Initialize path manager for the new maze

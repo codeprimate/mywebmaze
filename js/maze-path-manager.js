@@ -14,10 +14,11 @@ class PathManager {
         this.padding = 10
         
         // Initialize global tilt permission tracking if needed
+        // Use a more robust approach to prevent conflicts between multiple PathManager instances
         if (typeof window.tiltPermissionRequested === 'undefined') {
-            // Check sessionStorage first for persistence across page refreshes
+            // Check localStorage first for persistence across page refreshes
             try {
-                const storedState = sessionStorage.getItem('tiltPermissionState');
+                const storedState = localStorage.getItem('tiltPermissionState');
                 if (storedState) {
                     const state = JSON.parse(storedState);
                     window.tiltPermissionRequested = state.requested || false;
@@ -27,8 +28,27 @@ class PathManager {
                     window.tiltPermissionGranted = false;
                 }
             } catch (e) {
+                console.warn('Failed to load tilt permission state from localStorage:', e);
                 window.tiltPermissionRequested = false;
                 window.tiltPermissionGranted = false;
+            }
+        } else {
+            // If global state already exists, ensure it's consistent with localStorage
+            // This prevents inconsistencies when multiple PathManager instances are created
+            try {
+                const storedState = localStorage.getItem('tiltPermissionState');
+                if (storedState) {
+                    const state = JSON.parse(storedState);
+                    // Only update if there's a mismatch to avoid overwriting session state
+                    if (window.tiltPermissionRequested !== state.requested) {
+                        window.tiltPermissionRequested = state.requested || false;
+                    }
+                    if (window.tiltPermissionGranted !== state.granted) {
+                        window.tiltPermissionGranted = state.granted || false;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to sync tilt permission state with localStorage:', e);
             }
         }
         
@@ -1901,9 +1921,12 @@ class PathManager {
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             this.debug('Device requires permission for orientation events (iOS 13+)', 'info');
             
-            // Use a global variable to track if permission has been requested during this page session
-            if (!window.tiltPermissionRequested) {
+            // Ensure global permission state is properly initialized
+            if (typeof window.tiltPermissionRequested === 'undefined') {
                 window.tiltPermissionRequested = false;
+            }
+            if (typeof window.tiltPermissionGranted === 'undefined') {
+                window.tiltPermissionGranted = false;
             }
             
             // If permission was already requested in this session, don't show dialog again
@@ -1914,6 +1937,8 @@ class PathManager {
                     if (this.tiltConfig.enabled && tiltToggle && tiltToggle.checked) {
                         this.attachTiltEventListener();
                     }
+                } else {
+                    this.debug('Permission was previously denied, not showing dialog again', 'warning');
                 }
                 return;
             }
@@ -1964,7 +1989,7 @@ class PathManager {
                                 // Store permission state in global variable
                                 window.tiltPermissionGranted = true;
                                 
-                                // Save state to sessionStorage for persistence across page refreshes
+                                // Save state to localStorage for persistence across page refreshes
                                 this._saveTiltPermissionState();
                                 
                                 // Only enable if toggle is checked based on saved preference
@@ -1982,7 +2007,7 @@ class PathManager {
                                 // Store permission state in global variable
                                 window.tiltPermissionGranted = false;
                                 
-                                // Save state to sessionStorage for persistence across page refreshes
+                                // Save state to localStorage for persistence across page refreshes
                                 this._saveTiltPermissionState();
                                 
                                 this.tiltConfig.enabled = false;
@@ -2000,7 +2025,7 @@ class PathManager {
                             // Store permission state in global variable
                             window.tiltPermissionGranted = false;
                             
-                            // Save state to sessionStorage for persistence across page refreshes
+                            // Save state to localStorage for persistence across page refreshes
                             this._saveTiltPermissionState();
                             
                             this.tiltConfig.enabled = false;
@@ -2021,7 +2046,7 @@ class PathManager {
                     window.tiltPermissionRequested = true;
                     window.tiltPermissionGranted = false;
                     
-                    // Save state to sessionStorage for persistence across page refreshes
+                    // Save state to localStorage for persistence across page refreshes
                     this._saveTiltPermissionState();
                     
                     this.tiltConfig.enabled = false;
@@ -2072,17 +2097,17 @@ class PathManager {
     }
     
     /**
-     * Saves the tilt permission state to sessionStorage
+     * Saves the tilt permission state to localStorage
      * Ensures permission state persists across page refreshes
      * @private
      */
     _saveTiltPermissionState() {
         try {
-            sessionStorage.setItem('tiltPermissionState', JSON.stringify({
+            localStorage.setItem('tiltPermissionState', JSON.stringify({
                 requested: window.tiltPermissionRequested || false,
                 granted: window.tiltPermissionGranted || false
             }));
-            this.debug('Saved tilt permission state to sessionStorage', 'info');
+            this.debug('Saved tilt permission state to localStorage', 'info');
         } catch (e) {
             this.debug(`Failed to save tilt permission state: ${e}`, 'error');
         }
@@ -2309,6 +2334,36 @@ class PathManager {
         }
         
         this.debug('Tilt controls disabled', 'info');
+    }
+    
+    /**
+     * Cleans up the PathManager instance
+     * Removes event listeners and clears resources to prevent memory leaks
+     * Should be called when the PathManager is no longer needed
+     */
+    destroy() {
+        // Stop any active animations
+        this.animation.cleanup();
+        
+        // Stop timer if running
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        
+        // Disable tilt controls to remove event listeners
+        this.disableTiltControls();
+        
+        // Clear path graphics
+        this.clearPathGraphics();
+        
+        // Remove debug element if it exists
+        const tiltDebug = document.getElementById('tilt-debug');
+        if (tiltDebug && tiltDebug.parentNode) {
+            tiltDebug.parentNode.removeChild(tiltDebug);
+        }
+        
+        this.debug('PathManager instance destroyed', 'info');
     }
 }
 
