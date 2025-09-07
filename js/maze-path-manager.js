@@ -13,44 +13,19 @@ class PathManager {
         this.rough = rough;
         this.padding = 10
         
-        // Initialize global tilt permission tracking if needed
-        // Use a more robust approach to prevent conflicts between multiple PathManager instances
-        if (typeof window.tiltPermissionRequested === 'undefined') {
-            // Check localStorage first for persistence across page refreshes
-            try {
-                const storedState = localStorage.getItem('tiltPermissionState');
-                if (storedState) {
-                    const state = JSON.parse(storedState);
-                    window.tiltPermissionRequested = state.requested || false;
-                    window.tiltPermissionGranted = state.granted || false;
-                } else {
-                    window.tiltPermissionRequested = false;
-                    window.tiltPermissionGranted = false;
-                }
-            } catch (e) {
-                console.warn('Failed to load tilt permission state from localStorage:', e);
-                window.tiltPermissionRequested = false;
-                window.tiltPermissionGranted = false;
-            }
-        } else {
-            // If global state already exists, ensure it's consistent with localStorage
-            // This prevents inconsistencies when multiple PathManager instances are created
-            try {
-                const storedState = localStorage.getItem('tiltPermissionState');
-                if (storedState) {
-                    const state = JSON.parse(storedState);
-                    // Only update if there's a mismatch to avoid overwriting session state
-                    if (window.tiltPermissionRequested !== state.requested) {
-                        window.tiltPermissionRequested = state.requested || false;
-                    }
-                    if (window.tiltPermissionGranted !== state.granted) {
-                        window.tiltPermissionGranted = state.granted || false;
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to sync tilt permission state with localStorage:', e);
-            }
-        }
+        // No need to track permission state - just request when needed
+        
+        // Store event handler references for cleanup
+        this.eventHandlers = {
+            handlePointerDown: null,
+            handlePointerMove: null,
+            handlePointerUp: null,
+            handleMouseUp: null,
+            handleMouseLeave: null,
+            handleTouchEnd: null,
+            handleTouchCancel: null,
+            resetPathHandler: null
+        };
         
         // Configuration for path animations - controls visual appearance and timing
         this.animationConfig = {
@@ -82,6 +57,7 @@ class PathManager {
             moveDelay: 400,             // Milliseconds between moves (increased from 250 to 400ms)
             sensitivityX: 1.0,          // Multiplier for X-axis (beta) sensitivity
             sensitivityY: 1.2,          // Multiplier for Y-axis (gamma) sensitivity
+            listenerAttached: false,    // Track if orientation listener is currently attached
             initializedOnce: false,     // Track if we've tried to initialize once
             initializedTime: null,      // Timestamp of when initialization occurred
             // Dampening to smooth out readings
@@ -1276,21 +1252,29 @@ class PathManager {
             }
         };
         
+        // Store event handler references for cleanup
+        this.eventHandlers.handlePointerDown = handlePointerDown;
+        this.eventHandlers.handlePointerMove = handlePointerMove;
+        this.eventHandlers.handleMouseUp = () => handlePointerUp('mouseup');
+        this.eventHandlers.handleMouseLeave = () => handlePointerUp('mouseleave');
+        this.eventHandlers.handleTouchEnd = () => handlePointerUp('touchend');
+        this.eventHandlers.handleTouchCancel = () => handlePointerUp('touchcancel');
+        
         // Attach mouse event handlers
         this.svgElement.addEventListener('mousedown', handlePointerDown);
         this.svgElement.addEventListener('mousemove', handlePointerMove);
-        this.svgElement.addEventListener('mouseup', () => handlePointerUp('mouseup'));
-        this.svgElement.addEventListener('mouseleave', () => handlePointerUp('mouseleave'));
+        this.svgElement.addEventListener('mouseup', this.eventHandlers.handleMouseUp);
+        this.svgElement.addEventListener('mouseleave', this.eventHandlers.handleMouseLeave);
         
         // Attach touch event handlers for mobile support
         this.svgElement.addEventListener('touchstart', handlePointerDown);
         this.svgElement.addEventListener('touchmove', handlePointerMove);
-        this.svgElement.addEventListener('touchend', () => handlePointerUp('touchend'));
-        this.svgElement.addEventListener('touchcancel', () => handlePointerUp('touchcancel'));
+        this.svgElement.addEventListener('touchend', this.eventHandlers.handleTouchEnd);
+        this.svgElement.addEventListener('touchcancel', this.eventHandlers.handleTouchCancel);
         
         // Add reset path button handler
         if (this.resetPathBtn) {
-            this.resetPathBtn.addEventListener('click', () => {
+            this.eventHandlers.resetPathHandler = () => {
                 this.resetPath();
                 // Reset the activity UI
                 this.resetActivityUI();
@@ -1308,7 +1292,8 @@ class PathManager {
                         activityTracker.classList.remove('tilt-animation');
                     }, 500);
                 }
-            });
+            };
+            this.resetPathBtn.addEventListener('click', this.eventHandlers.resetPathHandler);
         }
     }
     
@@ -1917,161 +1902,16 @@ class PathManager {
             }
         }
         
-        // Handle iOS permission model (iOS 13+)
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            this.debug('Device requires permission for orientation events (iOS 13+)', 'info');
-            
-            // Ensure global permission state is properly initialized
-            if (typeof window.tiltPermissionRequested === 'undefined') {
-                window.tiltPermissionRequested = false;
-            }
-            if (typeof window.tiltPermissionGranted === 'undefined') {
-                window.tiltPermissionGranted = false;
-            }
-            
-            // If permission was already requested in this session, don't show dialog again
-            if (window.tiltPermissionRequested) {
-                this.debug('Tilt permission already requested in this page session', 'info');
-                if (window.tiltPermissionGranted) {
-                    this.debug('Using previously granted permission', 'success');
-                    if (this.tiltConfig.enabled && tiltToggle && tiltToggle.checked) {
-                        this.attachTiltEventListener();
-                    }
-                } else {
-                    this.debug('Permission was previously denied, not showing dialog again', 'warning');
-                }
-                return;
-            }
-            
-            // Create permission request button container if it doesn't exist
-            let permissionContainer = document.getElementById('tilt-permission-container');
-            if (!permissionContainer) {
-                permissionContainer = document.createElement('div');
-                permissionContainer.id = 'tilt-permission-container';
-                permissionContainer.className = 'tilt-permission-container';
-                permissionContainer.style.position = 'fixed';
-                permissionContainer.style.top = '50%';
-                permissionContainer.style.left = '50%';
-                permissionContainer.style.transform = 'translate(-50%, -50%)';
-                permissionContainer.style.padding = '20px';
-                permissionContainer.style.width = '280px'; // Set a fixed width for consistency
-                permissionContainer.style.maxWidth = '90%'; // Ensure it works on small screens
-                permissionContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'; // Slightly more opaque
-                permissionContainer.style.border = '2px solid #4285F4';
-                permissionContainer.style.borderRadius = '8px';
-                permissionContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'; // Enhanced shadow
-                permissionContainer.style.zIndex = '10000';
-                permissionContainer.style.textAlign = 'center';
-                permissionContainer.innerHTML = `
-                    <p style="margin-top:0;font-weight:bold;font-size:1.2em;">Enable Tilt Controls</p>
-                    <p style="margin-bottom:20px;">This device requires permission to access orientation sensors.</p>
-                    <div style="display:flex;justify-content:center;gap:15px;">
-                        <button id="tiltPermissionBtn" style="padding:10px 15px;background:#4285F4;color:white;border:none;border-radius:4px;cursor:pointer;flex:1;max-width:130px;font-weight:bold;">
-                            Grant Permission
-                        </button>
-                        <button id="tiltPermissionCancelBtn" style="padding:10px 15px;background:#f0f0f0;color:#333;border:1px solid #ccc;border-radius:4px;cursor:pointer;flex:1;max-width:130px;">
-                            Cancel
-                        </button>
-                    </div>
-                `;
-                document.body.appendChild(permissionContainer);
-                
-                // Add event listener for permission button
-                document.getElementById('tiltPermissionBtn').addEventListener('click', () => {
-                    // Mark that permission has been requested in this session
-                    window.tiltPermissionRequested = true;
-                    
-                    DeviceOrientationEvent.requestPermission()
-                        .then(permissionState => {
-                            if (permissionState === 'granted') {
-                                this.debug('DeviceOrientation permission granted', 'success');
-                                
-                                // Store permission state in global variable
-                                window.tiltPermissionGranted = true;
-                                
-                                // Save state to localStorage for persistence across page refreshes
-                                this._saveTiltPermissionState();
-                                
-                                // Only enable if toggle is checked based on saved preference
-                                if (tiltToggle) {
-                                    // Don't change the toggle checked state here
-                                    // Just enable tilt controls if the toggle is already checked
-                                    if (tiltToggle.checked) {
-                                        this.attachTiltEventListener();
-                                    }
-                                }
-                                document.body.removeChild(permissionContainer);
-                            } else {
-                                this.debug('DeviceOrientation permission denied', 'error');
-                                
-                                // Store permission state in global variable
-                                window.tiltPermissionGranted = false;
-                                
-                                // Save state to localStorage for persistence across page refreshes
-                                this._saveTiltPermissionState();
-                                
-                                this.tiltConfig.enabled = false;
-                                if (tiltToggle) {
-                                    tiltToggle.checked = false;
-                                    // Save the state when it changes due to permission denial
-                                    this._saveTiltControlsState();
-                                }
-                                document.body.removeChild(permissionContainer);
-                            }
-                        })
-                        .catch(error => {
-                            this.debug(`Error requesting permission: ${error}`, 'error');
-                            
-                            // Store permission state in global variable
-                            window.tiltPermissionGranted = false;
-                            
-                            // Save state to localStorage for persistence across page refreshes
-                            this._saveTiltPermissionState();
-                            
-                            this.tiltConfig.enabled = false;
-                            if (tiltToggle) {
-                                tiltToggle.checked = false;
-                                // Save the state when it changes due to permission error
-                                this._saveTiltControlsState();
-                            }
-                            document.body.removeChild(permissionContainer);
-                        });
-                });
-                
-                // Add event listener for cancel button
-                document.getElementById('tiltPermissionCancelBtn').addEventListener('click', () => {
-                    this.debug('Permission request canceled by user', 'info');
-                    
-                    // Mark as requested but denied
-                    window.tiltPermissionRequested = true;
-                    window.tiltPermissionGranted = false;
-                    
-                    // Save state to localStorage for persistence across page refreshes
-                    this._saveTiltPermissionState();
-                    
-                    this.tiltConfig.enabled = false;
-                    if (tiltToggle) {
-                        tiltToggle.checked = false;
-                        // Save the state when it changes due to permission cancellation
-                        this._saveTiltControlsState();
-                    }
-                    document.body.removeChild(permissionContainer);
-                });
-            }
-            
-            // User needs to interact with the page first on iOS
-            this.debug('Waiting for user to grant permission', 'info');
-        } else {
-            // No permission needed, attach directly if toggle is enabled
-            if (this.tiltConfig.enabled) {
-                this.attachTiltEventListener();
-            }
+        // If tilt controls are enabled, attach the listener
+        // The listener will handle permission requests when needed
+        if (this.tiltConfig.enabled) {
+            this.attachTiltEventListener();
         }
     }
     
     /**
      * Loads tilt controls preference from localStorage on initialization
-     * Defaults to enabled (true) if no saved preference exists
+     * Defaults to disabled (false) if no saved preference exists to avoid unwanted permission dialogs
      * @private
      */
     _loadTiltControlsState() {
@@ -2080,9 +1920,9 @@ class PathManager {
             this.tiltConfig.enabled = savedTiltControls === 'true';
             this.debug(`Loaded saved tilt controls preference: ${this.tiltConfig.enabled}`, 'info');
         } else {
-            // Default to enabled when no saved preference exists
-            this.tiltConfig.enabled = true;
-            this.debug('No saved tilt controls preference found, using default (enabled)', 'info');
+            // Default to disabled when no saved preference exists to avoid unwanted permission dialogs
+            this.tiltConfig.enabled = false;
+            this.debug('No saved tilt controls preference found, using default (disabled)', 'info');
         }
     }
     
@@ -2096,22 +1936,6 @@ class PathManager {
         this.debug(`Saved tilt controls preference: ${this.tiltConfig.enabled}`, 'info');
     }
     
-    /**
-     * Saves the tilt permission state to localStorage
-     * Ensures permission state persists across page refreshes
-     * @private
-     */
-    _saveTiltPermissionState() {
-        try {
-            localStorage.setItem('tiltPermissionState', JSON.stringify({
-                requested: window.tiltPermissionRequested || false,
-                granted: window.tiltPermissionGranted || false
-            }));
-            this.debug('Saved tilt permission state to localStorage', 'info');
-        } catch (e) {
-            this.debug(`Failed to save tilt permission state: ${e}`, 'error');
-        }
-    }
     
     /**
      * Detects if the current device is a mobile device using
@@ -2154,23 +1978,125 @@ class PathManager {
     /**
      * Attaches device orientation event listener
      * Sets up the handler for processing tilt data
+     * Handles permission requests for iOS 13+ devices
      */
     attachTiltEventListener() {
         if (!this.tiltConfig.enabled) return;
         
-        // Bind the handler to maintain 'this' context
-        this.handleDeviceTilt = this.handleDeviceTilt.bind(this);
+        // Validate device capabilities before proceeding
+        if (!this._validateDeviceCapabilities()) {
+            this.debug('Device capabilities validation failed, disabling tilt controls', 'warning');
+            this._handlePermissionDenied();
+            return;
+        }
         
-        // Add the event listener
-        window.addEventListener('deviceorientation', this.handleDeviceTilt);
+        // Handle iOS permission model (iOS 13+)
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            this.debug('Device requires permission for orientation events (iOS 13+)', 'info');
+            
+            // Request permission - if already granted, this will resolve immediately
+            this.debug('Requesting permission for orientation events', 'info');
+            DeviceOrientationEvent.requestPermission()
+                .then(permissionState => {
+                    if (permissionState === 'granted') {
+                        this.debug('DeviceOrientation permission granted', 'success');
+                        this._attachOrientationListener();
+                    } else {
+                        this.debug('DeviceOrientation permission denied', 'error');
+                        this._handlePermissionDenied();
+                    }
+                })
+                .catch(error => {
+                    this.debug(`Error requesting permission: ${error}`, 'error');
+                    this._handlePermissionDenied();
+                });
+        } else {
+            // No permission needed, attach directly
+            this._attachOrientationListener();
+        }
+    }
+    
+    /**
+     * Validates that the device has the necessary capabilities for tilt controls
+     * @private
+     * @returns {boolean} True if device capabilities are valid
+     */
+    _validateDeviceCapabilities() {
+        // Check if DeviceOrientationEvent is supported
+        if (!window.DeviceOrientationEvent) {
+            this.debug('DeviceOrientationEvent not supported', 'warning');
+            return false;
+        }
         
-        this.debug('Tilt controls activated', 'success');
+        // Re-check if this is still a mobile device
+        const isMobileDevice = this.detectMobileDevice();
+        if (!isMobileDevice) {
+            this.debug('Device no longer detected as mobile', 'warning');
+            return false;
+        }
         
-        // Initialize first position if path is empty
-        if (this.maze.userPath.length === 0) {
-            const entranceCell = this.maze.grid[this.maze.entrance.row][this.maze.entrance.col];
-            this.addCellToPath(entranceCell);
-            this.debug('Path started at entrance for tilt controls', 'info');
+        return true;
+    }
+    
+    /**
+     * Handles permission denial by disabling tilt controls and updating UI
+     * @private
+     */
+    _handlePermissionDenied() {
+        // Disable tilt controls when permission is denied
+        this.tiltConfig.enabled = false;
+        const tiltToggle = document.getElementById('tiltControlsToggle');
+        if (tiltToggle) {
+            tiltToggle.checked = false;
+        }
+        this._saveTiltControlsState();
+        this.debug('Tilt controls disabled due to permission denial', 'info');
+    }
+    
+    /**
+     * Actually attaches the orientation event listener
+     * @private
+     */
+    _attachOrientationListener() {
+        try {
+            // Remove any existing listener first to prevent duplicates
+            this._removeOrientationListener();
+            
+            // Bind the handler to maintain 'this' context
+            this.handleDeviceTilt = this.handleDeviceTilt.bind(this);
+            
+            // Add the event listener
+            window.addEventListener('deviceorientation', this.handleDeviceTilt);
+            this.tiltConfig.listenerAttached = true;
+            
+            this.debug('Tilt controls activated', 'success');
+            
+            // Initialize first position if path is empty
+            if (this.maze.userPath.length === 0) {
+                const entranceCell = this.maze.grid[this.maze.entrance.row][this.maze.entrance.col];
+                this.addCellToPath(entranceCell);
+                this.debug('Path started at entrance for tilt controls', 'info');
+            }
+        } catch (error) {
+            this.debug(`Failed to attach orientation listener: ${error}`, 'error');
+            this.tiltConfig.listenerAttached = false;
+            this._handlePermissionDenied();
+        }
+    }
+    
+    /**
+     * Removes the device orientation event listener if it exists
+     * @private
+     */
+    _removeOrientationListener() {
+        if (this.tiltConfig.listenerAttached && this.handleDeviceTilt) {
+            try {
+                window.removeEventListener('deviceorientation', this.handleDeviceTilt);
+                this.tiltConfig.listenerAttached = false;
+                this.debug('Orientation event listener removed', 'info');
+            } catch (error) {
+                this.debug(`Error removing orientation listener: ${error}`, 'warning');
+            }
         }
     }
     
@@ -2316,12 +2242,58 @@ class PathManager {
     }
     
     /**
-     * Disables tilt controls
+     * Removes all SVG event listeners to prevent memory leaks
+     * @private
+     */
+    _removeSVGEventListeners() {
+        if (!this.svgElement) return;
+        
+        try {
+            // Remove mouse event listeners
+            if (this.eventHandlers.handlePointerDown) {
+                this.svgElement.removeEventListener('mousedown', this.eventHandlers.handlePointerDown);
+                this.svgElement.removeEventListener('touchstart', this.eventHandlers.handlePointerDown);
+            }
+            
+            if (this.eventHandlers.handlePointerMove) {
+                this.svgElement.removeEventListener('mousemove', this.eventHandlers.handlePointerMove);
+                this.svgElement.removeEventListener('touchmove', this.eventHandlers.handlePointerMove);
+            }
+            
+            // Remove specific event listeners with their stored references
+            if (this.eventHandlers.handleMouseUp) {
+                this.svgElement.removeEventListener('mouseup', this.eventHandlers.handleMouseUp);
+            }
+            if (this.eventHandlers.handleMouseLeave) {
+                this.svgElement.removeEventListener('mouseleave', this.eventHandlers.handleMouseLeave);
+            }
+            if (this.eventHandlers.handleTouchEnd) {
+                this.svgElement.removeEventListener('touchend', this.eventHandlers.handleTouchEnd);
+            }
+            if (this.eventHandlers.handleTouchCancel) {
+                this.svgElement.removeEventListener('touchcancel', this.eventHandlers.handleTouchCancel);
+            }
+            
+            // Remove reset button listener
+            if (this.resetPathBtn && this.eventHandlers.resetPathHandler) {
+                this.resetPathBtn.removeEventListener('click', this.eventHandlers.resetPathHandler);
+            }
+            
+            this.debug('SVG event listeners removed', 'info');
+        } catch (error) {
+            this.debug(`Error removing SVG event listeners: ${error}`, 'warning');
+        }
+    }
+    
+    /**
+     * Disables tilt controls and cleans up event listeners
      */
     disableTiltControls() {
         if (!this.tiltConfig.enabled) return;
         
-        window.removeEventListener('deviceorientation', this.handleDeviceTilt);
+        // Remove the orientation event listener if it exists
+        this._removeOrientationListener();
+        
         this.tiltConfig.enabled = false;
         
         // Reset the tilt config's last move timestamp to ensure no delayed movements
@@ -2353,6 +2325,9 @@ class PathManager {
         
         // Disable tilt controls to remove event listeners
         this.disableTiltControls();
+        
+        // Remove all SVG event listeners
+        this._removeSVGEventListeners();
         
         // Clear path graphics
         this.clearPathGraphics();
