@@ -1218,6 +1218,34 @@ const MazeUI = (function() {
                 }
             });
             
+            // Preset buttons
+            const presetButtons = document.querySelectorAll('.preset-btn');
+            presetButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const preset = button.getAttribute('data-preset');
+                    
+                    // Update active button state
+                    presetButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    // Calculate new dimensions with preset
+                    const { width, height, cellSize } = calculateOptimalDimensions(preset);
+                    
+                    // Update the hidden input fields
+                    widthInput.value = width;
+                    heightInput.value = height;
+                    cellSizeInput.value = cellSize;
+                    
+                    // Update proposed dimensions (for consistency with resize logic)
+                    _proposedWidth = width;
+                    _proposedHeight = height;
+                    _proposedCellSize = cellSize;
+                    
+                    // Generate new maze with preset dimensions
+                    this.generateMaze();
+                });
+            });
+            
             // Download buttons
             downloadBtn.addEventListener('click', this.downloadMaze.bind(this));
             downloadPngBtn.addEventListener('click', this.downloadPng.bind(this));
@@ -1283,7 +1311,14 @@ const MazeUI = (function() {
      * 
      * @returns {Object} Object containing width, height, and cellSize properties
      */
-    function calculateOptimalDimensions() {
+    function calculateOptimalDimensions(preset = null) {
+        // Preset multipliers for cell size adjustments
+        const PRESET_MULTIPLIERS = {
+            'easy': 1.8,    // Larger cells = easier navigation
+            'medium': 1.0,  // Current optimal calculation
+            'hard': 0.5     // Smaller cells = more challenging
+        };
+        
         // Define screen size breakpoints
         const SCREEN = {
             VERY_SMALL: 350,
@@ -1315,20 +1350,13 @@ const MazeUI = (function() {
             heightMultiplier: viewportWidth <= SCREEN.VERY_SMALL ? 0.8 :
                              viewportWidth < SCREEN.SMALL ? 0.85 : 0.88,
             
-            // Minimum cell sizes - increased by 20%
+            // Cell size range for different screen sizes
             minCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 10 : 
                         viewportWidth < SCREEN.SMALL ? 12 :
                         viewportWidth < SCREEN.MEDIUM ? 15 : 17,
-            
-            // Maximum cell sizes - increased by 20%
             maxCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 22 : 
                         viewportWidth < SCREEN.SMALL ? 27 :
                         viewportWidth < SCREEN.MEDIUM ? 34 : 39,
-            
-            // Cell size divisor for different screen sizes - adjusted for better fit
-            cellSizeDivisor: viewportWidth <= SCREEN.VERY_SMALL ? 14 : 
-                            viewportWidth < SCREEN.SMALL ? 16 :
-                            viewportWidth < SCREEN.MEDIUM ? 18 : 22,
             
             // Maximum dimensions 
             maxWidth: viewportWidth < SCREEN.SMALL ? 28 : 45,
@@ -1370,6 +1398,26 @@ const MazeUI = (function() {
         
         // Constrain to config limits
         cellSize = Math.max(config.minCellSize, Math.min(config.maxCellSize, cellSize));
+        
+        // Apply preset if provided
+        if (preset) {
+            if (typeof preset === 'string' && PRESET_MULTIPLIERS[preset]) {
+                // Apply multiplier for string presets
+                cellSize = Math.round(cellSize * PRESET_MULTIPLIERS[preset]);
+                
+                // For presets, use bounds that accommodate the multiplier range
+                const minMultiplier = Math.min(...Object.values(PRESET_MULTIPLIERS));
+                const maxMultiplier = Math.max(...Object.values(PRESET_MULTIPLIERS));
+                const presetMinCellSize = Math.max(5, config.minCellSize * minMultiplier);
+                const presetMaxCellSize = Math.min(50, config.maxCellSize * maxMultiplier);
+                cellSize = Math.max(presetMinCellSize, Math.min(presetMaxCellSize, cellSize));
+            } else if (typeof preset === 'object' && preset.cellSize) {
+                // Object preset with explicit values
+                cellSize = preset.cellSize;
+                // Keep original bounds for explicit values
+                cellSize = Math.max(config.minCellSize, Math.min(config.maxCellSize, cellSize));
+            }
+        }
         
         // Calculate maze dimensions in cells based on this cell size
         const widthInCells = Math.max(
@@ -1488,15 +1536,15 @@ const MazeUI = (function() {
                 seedInput.value = initialSeed;
                 MazeController.resizeInput();
             }
-            
-            // Calculate optimal dimensions for the current viewport size
-            const { width, height, cellSize } = calculateOptimalDimensions();
-            
+
             // Get input elements
             const widthInput = document.getElementById('width');
             const heightInput = document.getElementById('height');
             const cellSizeInput = document.getElementById('cellSize');
             
+            // Calculate optimal dimensions for the current viewport size
+            const { width, height, cellSize } = calculateOptimalDimensions('medium');
+
             if (widthInput && heightInput && cellSizeInput) {
                 // Update input values with optimal dimensions
                 widthInput.value = width;

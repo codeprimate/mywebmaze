@@ -801,6 +801,46 @@ input:focus + .slider {
   }
 }
 
+/* Preset buttons */
+.preset-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  justify-content: center;
+}
+
+.preset-btn {
+  min-width: 60px;
+  min-height: 32px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.8em;
+  font-weight: normal;
+  font-family: var(--font-primary);
+  border: none;
+  background-color: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: transform var(--transition-default);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preset-btn:hover {
+  transform: scale(1.05);
+}
+
+.preset-btn.active {
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.preset-btn.active:hover {
+  transform: scale(1.05);
+}
+
 /* Hard mode toggle */
 .hard-mode-toggle {
   display: flex;
@@ -1198,6 +1238,17 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
     justify-content: space-around;
   }
   
+  .preset-buttons {
+    gap: var(--spacing-xs);
+  }
+  
+  .preset-btn {
+    min-width: 70px;
+    min-height: 32px;
+    font-size: 0.8em;
+    padding: 3px var(--spacing-sm);
+  }
+  
   /* Activity tracker improvements */
   #maze-activity-tracker {
     max-width: 90%;
@@ -1241,6 +1292,17 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   
   .maze-controls-container {
     gap: var(--spacing-sm);
+  }
+  
+  .preset-buttons {
+    gap: 2px;
+  }
+  
+  .preset-btn {
+    min-width: 60px;
+    min-height: 28px;
+    font-size: 0.75em;
+    padding: 2px var(--spacing-xs);
   }
   
   /* Activity tracker improvements for very small screens */
