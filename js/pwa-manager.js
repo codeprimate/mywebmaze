@@ -61,10 +61,9 @@ class PWAManager {
             const newWorker = registration.installing;
             newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // New content is available, prompt user to refresh
-                    if (confirm('New version available! Refresh to update?')) {
-                        window.location.reload();
-                    }
+                    // New content is available, automatically refresh
+                    console.log('New version detected, refreshing page...');
+                    window.location.reload();
                 }
             });
         });

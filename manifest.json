@@ -1,6 +1,6 @@
 {
   "name": "My Web Maze",
-  "short_name": "MazeGen",
+  "short_name": "My Web Maze",
   "description": "Interactive maze generator with customizable size and downloadable options",
   "start_url": "/",
   "display": "standalone",
