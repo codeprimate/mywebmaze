@@ -40,22 +40,16 @@
                     </svg>
                 </button>
             </div>
+            <!-- Preset buttons -->
+            <div class="preset-buttons">
+                <button id="preset-easy" class="preset-btn" data-preset="easy" title="Easy - Larger cells for easier navigation">Easy</button>
+                <button id="preset-medium" class="preset-btn active" data-preset="medium" title="Medium - Optimal size for current screen">Medium</button>
+                <button id="preset-hard" class="preset-btn" data-preset="hard" title="Hard - Smaller cells for more challenge">Hard</button>
+            </div>
         </div>
     </header>
-
     <main>
-        <div class="content-wrapper">
-            <!--
-            <div class="dimensions-display" aria-live="polite">
-                <span id="dimensions"></span>
-                &mdash;
-                <span id="difficulty-score" class="difficulty-score"></span>
-            </div>
-            -->
-            
-           
-        </div>
-        
+
         <section class="maze-container" aria-label="Interactive maze">
             <svg id="maze" width="402" height="402" aria-label="Maze puzzle"></svg>
         </section>
@@ -105,20 +99,13 @@
                 </div>
             </div>
 
-            <!-- Preset buttons -->
-            <div class="preset-buttons">
-                <button id="preset-easy" class="preset-btn" data-preset="easy" title="Easy - Larger cells for easier navigation">Easy</button>
-                <button id="preset-medium" class="preset-btn active" data-preset="medium" title="Medium - Optimal size for current screen">Medium</button>
-                <button id="preset-hard" class="preset-btn" data-preset="hard" title="Hard - Smaller cells for more challenge">Hard</button>
-            </div>
-
             <div class="maze-controls-container">
                 <div class="hard-mode-toggle">
                     <label class="switch" for="hardModeToggle">
                         <input type="checkbox" id="hardModeToggle" checked>
                         <span class="slider"></span>
                     </label>
-                    <label for="hardModeToggle">Hard Mode</label>
+                    <label for="hardModeToggle">Darkness</label>
                 </div>
                 
                 <!-- Tilt controls toggle - mobile only -->

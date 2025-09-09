@@ -1326,8 +1326,8 @@ const MazeUI = (function() {
             MIN_DIMENSION: 8,
             SAFETY_BUFFER: 30,
             CONTROLS_BUFFER: 10,
-            EXTRA_HEIGHT_BUFFER: 20,
-            HEIGHT_ROW_REDUCTION: 3
+            EXTRA_HEIGHT_BUFFER: 100,
+            HEIGHT_ROW_REDUCTION: 0
         };
         
         // 1. Calculate available space

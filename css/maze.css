@@ -806,7 +806,8 @@ input:focus + .slider {
   display: flex;
   align-items: center;
   gap: 0;
-  margin: var(--spacing-md) auto;
+  margin: 0;
+  padding: 0;
   justify-content: center;
 }
 
@@ -814,7 +815,7 @@ input:focus + .slider {
   font-size: 1.2em;
   min-width: 60px;
   min-height: 32px;
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
   font-weight: normal;
   font-family: var(--font-primary);
   border: none;
@@ -1239,7 +1240,9 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   }
   
   .preset-buttons {
-    gap: var(--spacing-xs);
+    gap: 0;
+    margin: 0;
+    padding: 0;
   }
   
   .preset-btn {
@@ -1294,6 +1297,8 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   
   .preset-buttons {
     gap: 0;
+    margin: 0;
+    padding: 0; 
   }
   
   .preset-btn {
