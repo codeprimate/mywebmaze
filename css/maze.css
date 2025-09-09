@@ -811,10 +811,10 @@ input:focus + .slider {
 }
 
 .preset-btn {
+  font-size: 1.2em;
   min-width: 60px;
   min-height: 32px;
   padding: var(--spacing-xs) var(--spacing-sm);
-  font-size: 0.8em;
   font-weight: normal;
   font-family: var(--font-primary);
   border: none;
@@ -834,7 +834,7 @@ input:focus + .slider {
 
 .preset-btn.active {
   font-weight: bold;
-  color: var(--color-accent);
+  font-size: 1.4em;
 }
 
 .preset-btn.active:hover {
@@ -1245,8 +1245,6 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   .preset-btn {
     min-width: 70px;
     min-height: 32px;
-    font-size: 0.8em;
-    padding: 3px var(--spacing-sm);
   }
   
   /* Activity tracker improvements */
@@ -1295,14 +1293,12 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   }
   
   .preset-buttons {
-    gap: 2px;
+    gap: 0;
   }
   
   .preset-btn {
     min-width: 60px;
     min-height: 28px;
-    font-size: 0.75em;
-    padding: 2px var(--spacing-xs);
   }
   
   /* Activity tracker improvements for very small screens */
