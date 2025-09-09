@@ -678,8 +678,9 @@ input:focus + .slider {
     font-size: 2em;
   }
   
-  .instructions {
-    font-size: 0.9em;
+  section.instructions {
+    font-size: 2.0em;
+    padding: 1em;
   }
   
   .instructions h2 {
@@ -1015,7 +1016,8 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   
   /* Make instructions more compact */
   .instructions {
-    font-size: 0.9em;
+    font-size: 1.2em;
+    padding: 1em;
     margin-top: var(--spacing-md);
   }
   
