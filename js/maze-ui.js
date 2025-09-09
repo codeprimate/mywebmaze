@@ -587,8 +587,8 @@ const MazeUI = (function() {
             const cellSize = parseInt(cellSizeInput.value, 10);
             const seed = parseInt(seedInput.value, 10);
             
-            const validWidth = this.isValidInput(width, 5, 100) ? width : 20;
-            const validHeight = this.isValidInput(height, 5, 100) ? height : 20;
+            const validWidth = this.isValidInput(width, 5, 200) ? width : 20;
+            const validHeight = this.isValidInput(height, 5, 200) ? height : 20;
             const validCellSize = this.isValidInput(cellSize, 5, 50) ? cellSize : 20;
             const validSeed = !isNaN(seed) ? seed : this.generateRandomSeed();
             
@@ -1095,8 +1095,8 @@ const MazeUI = (function() {
                     const deltaX = currentCellX - _startCellX;
                     const deltaY = currentCellY - _startCellY;
                     
-                    const newWidth = Math.max(5, Math.min(100, _startWidth + deltaX));
-                    const newHeight = Math.max(5, Math.min(100, _startHeight + deltaY));
+                    const newWidth = Math.max(5, Math.min(200, _startWidth + deltaX));
+                    const newHeight = Math.max(5, Math.min(200, _startHeight + deltaY));
                     
                     if (newWidth !== _proposedWidth || newHeight !== _proposedHeight) {
                         // Update the resize overlay with the new dimensions
@@ -1126,8 +1126,8 @@ const MazeUI = (function() {
                 const deltaX = currentCellX - _startCellX;
                 const deltaY = currentCellY - _startCellY;
                 
-                const newWidth = Math.max(5, Math.min(100, _startWidth + deltaX));
-                const newHeight = Math.max(5, Math.min(100, _startHeight + deltaY));
+                const newWidth = Math.max(5, Math.min(200, _startWidth + deltaX));
+                const newHeight = Math.max(5, Math.min(200, _startHeight + deltaY));
                 
                 if (newWidth !== _proposedWidth || newHeight !== _proposedHeight) {
                     // Update the resize overlay with the new dimensions
@@ -1298,195 +1298,91 @@ const MazeUI = (function() {
     
     /**
      * Calculates optimal maze dimensions based on current viewport size.
-     * Creates a responsive layout by adjusting cell size and maze dimensions
-     * according to screen size breakpoints.
+     * Simplified approach that prioritizes clarity and maintainability.
      * 
-     * Features:
-     * - Adapts dimensions for phones, tablets, and desktops
-     * - Maintains reasonable cell density for playability
-     * - Ensures proper aspect ratio based on available space
-     * - Adjusts cell size to maintain readability on small screens
-     * - Prioritizes fitting entire maze within viewport to prevent cutoff
-     * - Uses space efficiently with minimal padding
+     * Algorithm:
+     * 1. Calculate available space (viewport - UI elements - padding)
+     * 2. Determine cell size based on preset and screen size
+     * 3. Calculate maze dimensions by dividing available space by cell size
+     * 4. Apply minimum constraints for playability
      * 
+     * @param {string|Object|null} preset - 'easy', 'medium', 'hard', or object with cellSize
      * @returns {Object} Object containing width, height, and cellSize properties
      */
     function calculateOptimalDimensions(preset = null) {
-        // Preset multipliers for cell size adjustments
+        // Base cell size for all screen sizes
+        const BASE_CELL_SIZE = 25;
+        
+        // Constants for preset multipliers
         const PRESET_MULTIPLIERS = {
-            'easy': 1.8,    // Larger cells = easier navigation
-            'medium': 1.0,  // Current optimal calculation
-            'hard': 0.5     // Smaller cells = more challenging
+            EASY: 2.0,
+            HARD: 0.6
         };
         
-        // Define screen size breakpoints
-        const SCREEN = {
-            VERY_SMALL: 350,
-            SMALL: 480,
-            MEDIUM: 768
+        // Constants for constraints
+        const CONSTRAINTS = {
+            MIN_CELL_SIZE: 10,
+            MAX_CELL_SIZE: 100,
+            MIN_DIMENSION: 8,
+            SAFETY_BUFFER: 30,
+            CONTROLS_BUFFER: 10,
+            EXTRA_HEIGHT_BUFFER: 20,
+            HEIGHT_ROW_REDUCTION: 2
         };
         
+        // 1. Calculate available space
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Measure header height
+        // Get UI element heights
         const header = document.querySelector('header');
         const headerHeight = header ? header.offsetHeight : 0;
         
-        // Measure controls container height if it's visible
         const controlsContainer = document.querySelector('.maze-controls-container');
-        let controlsHeight = 0;
-        if (controlsContainer && window.getComputedStyle(controlsContainer).display !== 'none') {
-            controlsHeight = controlsContainer.offsetHeight + 10; // Add a small buffer
-        }
+        const controlsHeight = (controlsContainer && window.getComputedStyle(controlsContainer).display !== 'none') 
+            ? controlsContainer.offsetHeight + CONSTRAINTS.CONTROLS_BUFFER : 0;
         
-        // Define configuration values based on screen size
-        const config = {
-            // Width multiplier - increased to utilize more space
-            widthMultiplier: viewportWidth <= SCREEN.VERY_SMALL ? 0.95 : 
-                            viewportWidth < SCREEN.SMALL ? 0.92 : 0.9,
-            
-            // Height multiplier - increased to utilize more space
-            heightMultiplier: viewportWidth <= SCREEN.VERY_SMALL ? 0.8 :
-                             viewportWidth < SCREEN.SMALL ? 0.85 : 0.88,
-            
-            // Cell size range for different screen sizes
-            minCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 10 : 
-                        viewportWidth < SCREEN.SMALL ? 12 :
-                        viewportWidth < SCREEN.MEDIUM ? 15 : 17,
-            maxCellSize: viewportWidth <= SCREEN.VERY_SMALL ? 22 : 
-                        viewportWidth < SCREEN.SMALL ? 27 :
-                        viewportWidth < SCREEN.MEDIUM ? 34 : 39,
-            
-            // Maximum dimensions 
-            maxWidth: viewportWidth < SCREEN.SMALL ? 28 : 45,
-            maxHeight: viewportWidth < SCREEN.SMALL ? 28 : 45,
-            
-            // Target cell counts - adjusted for better space utilization
-            targetCellCount: viewportWidth < SCREEN.SMALL ? 180 : 350,
-            cellCountDeviation: 0.25, // Allow 25% deviation from target
-            
-            // Minimum dimension in cells
-            minDimension: 8,
-            
-            // Smaller safety buffer to maximize maze size while preventing cutoff
-            safetyBuffer: viewportWidth <= SCREEN.VERY_SMALL ? 10 : 
-                         viewportWidth < SCREEN.SMALL ? 12 : 15
-        };
-        
-        // Calculate available space with minimal safety buffer
-        const availableWidth = (viewportWidth * config.widthMultiplier) - config.safetyBuffer;
-        const availableHeight = (viewportHeight * config.heightMultiplier) - headerHeight - controlsHeight - config.safetyBuffer;
-        
-        // Get padding - possibly reduce padding for larger mazes
         const padding = getPadding();
-        const effectivePadding = Math.max(3, padding * 0.8); // Reduce padding slightly for better space use
         
-        // Calculate maximum maze dimensions accounting for padding
-        const maxMazeWidth = availableWidth - (effectivePadding * 2);
-        const maxMazeHeight = availableHeight - (effectivePadding * 2);
+        // Calculate available space for maze
+        const availableWidth = viewportWidth - (padding * 2) - CONSTRAINTS.SAFETY_BUFFER;
+        const availableHeight = viewportHeight - headerHeight - controlsHeight - (padding * 2) - CONSTRAINTS.SAFETY_BUFFER - CONSTRAINTS.EXTRA_HEIGHT_BUFFER;
         
-        // Calculate cell size that would fit these dimensions with target cell counts
-        // Starting with an estimate based on available area and target cell count
-        const areaPerCell = Math.min(
-            (maxMazeWidth * maxMazeHeight) / config.targetCellCount,
-            (config.maxCellSize * config.maxCellSize) // Cap by max cell size squared
-        );
+        // 2. Determine cell size based on preset
+        let cellSize;
         
-        // Initial cell size estimate (square root of area per cell)
-        let cellSize = Math.floor(Math.sqrt(areaPerCell));
-        
-        // Constrain to config limits
-        cellSize = Math.max(config.minCellSize, Math.min(config.maxCellSize, cellSize));
-        
-        // Apply preset if provided
-        if (preset) {
-            if (typeof preset === 'string' && PRESET_MULTIPLIERS[preset]) {
-                // Apply multiplier for string presets
-                cellSize = Math.round(cellSize * PRESET_MULTIPLIERS[preset]);
-                
-                // For presets, use bounds that accommodate the multiplier range
-                const minMultiplier = Math.min(...Object.values(PRESET_MULTIPLIERS));
-                const maxMultiplier = Math.max(...Object.values(PRESET_MULTIPLIERS));
-                const presetMinCellSize = Math.max(5, config.minCellSize * minMultiplier);
-                const presetMaxCellSize = Math.min(50, config.maxCellSize * maxMultiplier);
-                cellSize = Math.max(presetMinCellSize, Math.min(presetMaxCellSize, cellSize));
-            } else if (typeof preset === 'object' && preset.cellSize) {
-                // Object preset with explicit values
-                cellSize = preset.cellSize;
-                // Keep original bounds for explicit values
-                cellSize = Math.max(config.minCellSize, Math.min(config.maxCellSize, cellSize));
+        if (preset && typeof preset === 'object' && preset.cellSize) {
+            // Explicit cell size from object preset
+            cellSize = preset.cellSize;
+        } else {
+            // Start with base cell size
+            cellSize = BASE_CELL_SIZE;
+            
+            // Apply preset multiplier
+            if (preset === 'easy') {
+                cellSize = Math.round(cellSize * PRESET_MULTIPLIERS.EASY);
+            } else if (preset === 'hard') {
+                cellSize = Math.round(cellSize * PRESET_MULTIPLIERS.HARD);
             }
+            // 'medium' or null uses base cell size
         }
         
-        // Calculate maze dimensions in cells based on this cell size
-        const widthInCells = Math.max(
-            config.minDimension,
-            Math.floor(maxMazeWidth / cellSize)
-        );
+        // Ensure cell size is within reasonable bounds
+        cellSize = Math.max(CONSTRAINTS.MIN_CELL_SIZE, Math.min(CONSTRAINTS.MAX_CELL_SIZE, cellSize));
         
-        const heightInCells = Math.max(
-            config.minDimension,
-            Math.floor(maxMazeHeight / cellSize)
-        );
+        // 3. Calculate maze dimensions
+        const width = Math.max(CONSTRAINTS.MIN_DIMENSION, Math.floor(availableWidth / cellSize));
+        const height = Math.max(CONSTRAINTS.MIN_DIMENSION, Math.floor(availableHeight / cellSize) - CONSTRAINTS.HEIGHT_ROW_REDUCTION);
         
-        // Limit dimensions to configured maximums
-        const width = Math.min(widthInCells, config.maxWidth);
-        const height = Math.min(heightInCells, config.maxHeight);
+        // 4. Final safety check - ensure maze fits
+        const totalWidth = (width * cellSize) + (padding * 2);
+        const totalHeight = (height * cellSize) + (padding * 2) + headerHeight + controlsHeight;
         
-        // Verify the maze will fit with these dimensions
-        const totalMazeWidth = (width * cellSize) + (effectivePadding * 2);
-        const totalMazeHeight = (height * cellSize) + (effectivePadding * 2);
-        
-        // If maze still doesn't fit, reduce cell size until it does
-        if (totalMazeWidth > availableWidth || totalMazeHeight > availableHeight) {
-            // Calculate minimum required cell size to fit width
-            const minCellSizeForWidth = Math.floor((maxMazeWidth) / width);
-            
-            // Calculate minimum required cell size to fit height
-            const minCellSizeForHeight = Math.floor((maxMazeHeight) / height);
-            
-            // Use the smaller of the two (to ensure both dimensions fit)
-            const adjustedCellSize = Math.max(
-                config.minCellSize,
-                Math.min(minCellSizeForWidth, minCellSizeForHeight)
-            );
-            
-            // Return adjusted dimensions
-            return { width, height, cellSize: adjustedCellSize };
-        }
-        
-        // Check if total cells are within desired range
-        const totalCells = width * height;
-        const minCells = config.targetCellCount * (1 - config.cellCountDeviation);
-        const maxCells = config.targetCellCount * (1 + config.cellCountDeviation);
-        
-        // If outside acceptable range, adjust dimensions while maintaining aspect ratio
-        // but only if it doesn't make the maze too large
-        if ((totalCells < minCells || totalCells > maxCells) && 
-            totalMazeWidth < maxMazeWidth * 0.95 && // Increased from 0.9 to 0.95 for better space utilization
-            totalMazeHeight < maxMazeHeight * 0.95) {
-            
-            const aspect = width / height;
-            let newWidth = Math.max(
-                config.minDimension, 
-                Math.floor(Math.sqrt(config.targetCellCount * aspect))
-            );
-            let newHeight = Math.max(
-                config.minDimension, 
-                Math.floor(Math.sqrt(config.targetCellCount / aspect))
-            );
-            
-            // Final safety check - ensure adjusted dimensions still fit
-            const newTotalWidth = (newWidth * cellSize) + (effectivePadding * 2);
-            const newTotalHeight = (newHeight * cellSize) + (effectivePadding * 2);
-            
-            if (newTotalWidth > maxMazeWidth || newTotalHeight > maxMazeHeight) {
-                // Revert to original dimensions if new ones don't fit
-                return { width, height, cellSize };
-            }
-            
-            return { width: newWidth, height: newHeight, cellSize };
+        if (totalWidth > viewportWidth || totalHeight > viewportHeight) {
+            // Reduce cell size to fit
+            const maxCellSizeForWidth = Math.floor((availableWidth) / width);
+            const maxCellSizeForHeight = Math.floor((availableHeight) / height);
+            cellSize = Math.max(CONSTRAINTS.MIN_CELL_SIZE, Math.min(maxCellSizeForWidth, maxCellSizeForHeight));
         }
         
         return { width, height, cellSize };

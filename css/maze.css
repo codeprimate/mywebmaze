@@ -806,7 +806,7 @@ input:focus + .slider {
   display: flex;
   align-items: center;
   gap: 0;
-  margin: 0;
+  margin: var(--spacing-md) auto;
   justify-content: center;
 }
 
