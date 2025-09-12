@@ -207,8 +207,9 @@ class PathManager {
      * SVG elements for rendering, and user interaction handlers
      */
     initialize() {
-        this.initializeUserPath();
+        // Setup path group first, before any operations that might need it
         this.setupPathGroup();
+        this.initializeUserPath();
         this.setupInteractions();
         this.createActivityTrackerUI();
         
@@ -1013,6 +1014,12 @@ class PathManager {
      */
     highlightPathEnd() {
         if (this.maze.userPath.length === 0) return;
+        
+        // Safety check: ensure pathGroup exists before trying to append to it
+        if (!this.maze.pathGroup) {
+            this.debug('PathGroup not available for highlighting path end', 'warning');
+            return;
+        }
         
         const lastCell = this.maze.userPath[this.maze.userPath.length - 1];
         // Calculate center position of the cell

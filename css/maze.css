@@ -499,6 +499,12 @@ input:focus + .slider {
   flex-wrap: wrap; /* Allow footer to wrap */
 }
 
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
 .github-link {
   display: flex;
   align-items: center;
@@ -514,6 +520,83 @@ input:focus + .slider {
   width: 24px;
   height: 24px;
   fill: var(--color-text);
+}
+
+/* Update button */
+.update-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.85em;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-default);
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.update-btn:hover {
+  background-color: var(--color-bg-light);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: scale(1.05);
+}
+
+.update-btn:active {
+  transform: scale(0.95);
+}
+
+.update-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.update-btn:disabled:hover {
+  background: none;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  transform: none;
+}
+
+.update-icon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  transition: transform var(--transition-default);
+}
+
+.update-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes successPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.update-icon.success {
+  animation: successPulse 0.6s ease-in-out;
 }
 
 /* Debug info */
@@ -770,6 +853,16 @@ input:focus + .slider {
   .footer {
     flex-direction: column;
     gap: var(--spacing-sm);
+  }
+  
+  .footer-actions {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .update-btn {
+    font-size: 0.8em;
+    padding: var(--spacing-xs) var(--spacing-md);
   }
 }
 
