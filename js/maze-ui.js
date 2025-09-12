@@ -18,6 +18,8 @@ const MazeUI = (function() {
     let _mazeRenderer = null;        // Renderer for current maze
     let _pathManager = null;         // Handles user path solving attempts
     let _hardModeManager = null;     // Manages hard mode visibility/state
+    let _uiManager = null;           // Centralized UI manager
+    let _eventManager = null;        // Centralized event manager
     
     // Resize tracking state
     let _isDragging = false;         // Whether user is currently dragging resize handle
@@ -572,10 +574,11 @@ const MazeUI = (function() {
          * Form inputs are automatically sanitized and corrected if invalid.
          */
         generateMaze() {
-            const widthInput = document.getElementById('width');
-            const heightInput = document.getElementById('height');
-            const cellSizeInput = document.getElementById('cellSize');
-            const seedInput = document.getElementById('seed');
+            // Use UIManager if available, otherwise fallback to direct DOM access
+            const widthInput = _uiManager ? _uiManager.getElement('width') : document.getElementById('width');
+            const heightInput = _uiManager ? _uiManager.getElement('height') : document.getElementById('height');
+            const cellSizeInput = _uiManager ? _uiManager.getElement('cellSize') : document.getElementById('cellSize');
+            const seedInput = _uiManager ? _uiManager.getElement('seed') : document.getElementById('seed');
             
             if (!widthInput || !heightInput || !cellSizeInput || !seedInput) {
                 console.error('Required DOM elements not found');
@@ -616,8 +619,9 @@ const MazeUI = (function() {
                 _pathManager = null;
             }
             
-            // Initialize path manager for the new maze
-            _pathManager = new PathManager(_maze, document.getElementById('maze'), rough.svg(document.getElementById('maze')));
+            // Initialize path manager for the new maze with managers
+            const svgElement = _uiManager ? _uiManager.getElement('maze') : document.getElementById('maze');
+            _pathManager = new PathManager(_maze, svgElement, rough.svg(svgElement), _uiManager, _eventManager);
             
             // Update hard mode manager with new maze and path manager
             if (_hardModeManager) {
@@ -626,18 +630,27 @@ const MazeUI = (function() {
                 _pathManager.setHardModeManager(_hardModeManager);
             }
             
-            // Update dimensions display
-            const dimensionsElement = document.getElementById('dimensions');
-            if (dimensionsElement) {
-                dimensionsElement.textContent = `${validCellSize} × (${validWidth}×${validHeight})`;
-            }
-            
-            // Update difficulty score display
-            const difficultyElement = document.getElementById('difficulty-score');
-            if (difficultyElement && _maze.difficultyScore) {
-                const difficultyLabel = _maze.getDifficultyLabel();
-                //difficultyElement.textContent = `Difficulty: ${Math.round(_maze.difficultyScore)}/100`;
-                difficultyElement.textContent = `Difficulty: ${difficultyLabel}`;
+            // Update UI using UIManager if available
+            if (_uiManager) {
+                _uiManager.resetUI('full');
+                _uiManager.updateDimensions(validWidth, validHeight, validCellSize);
+                if (_maze.difficultyScore) {
+                    const difficultyLabel = _maze.getDifficultyLabel();
+                    _uiManager.updateDifficulty(_maze.difficultyScore, difficultyLabel);
+                }
+            } else {
+                // Fallback: Update dimensions display directly
+                const dimensionsElement = document.getElementById('dimensions');
+                if (dimensionsElement) {
+                    dimensionsElement.textContent = `${validCellSize} × (${validWidth}×${validHeight})`;
+                }
+                
+                // Update difficulty score display directly
+                const difficultyElement = document.getElementById('difficulty-score');
+                if (difficultyElement && _maze.difficultyScore) {
+                    const difficultyLabel = _maze.getDifficultyLabel();
+                    difficultyElement.textContent = `Difficulty: ${difficultyLabel}`;
+                }
             }
             
             // Show/hide full sheet button based on whether multiple would fit
@@ -1401,15 +1414,19 @@ const MazeUI = (function() {
      * 6. Calculates optimal dimensions for current device
      * 7. Generates the initial maze
      */
-    function init() {
+    function init(uiManager = null, eventManager = null) {
         if (_initialized) return;
+        
+        // Store manager references
+        _uiManager = uiManager;
+        _eventManager = eventManager;
         
         // Register components with global MazeUI object
         window.MazeUI = window.MazeUI || {};
         
         // Initialize the core module first
         MazeApp.init(() => {
-            const svgElement = document.getElementById('maze');
+            const svgElement = _uiManager ? _uiManager.getElement('maze') : document.getElementById('maze');
             
             if (!svgElement) {
                 console.error('SVG element not found');
@@ -1420,23 +1437,23 @@ const MazeUI = (function() {
             _mazeRenderer = new MazeApp.MazeRenderer(svgElement);
             
             // Initialize hard mode manager
-            _hardModeManager = new HardModeManager(svgElement);
+            _hardModeManager = new HardModeManager(svgElement, _uiManager);
             
-            // Set up all event listeners
-            MazeController.setupEventListeners();
+            // Set up all event listeners with managers
+            MazeController.setupEventListeners(_uiManager, _eventManager);
             
             // Initialize seed from URL hash or generate new one
             const initialSeed = MazeController.getSeedFromHash() || MazeController.generateRandomSeed();
-            const seedInput = document.getElementById('seed');
+            const seedInput = _uiManager ? _uiManager.getElement('seed') : document.getElementById('seed');
             if (seedInput) {
                 seedInput.value = initialSeed;
                 MazeController.resizeInput();
             }
 
-            // Get input elements
-            const widthInput = document.getElementById('width');
-            const heightInput = document.getElementById('height');
-            const cellSizeInput = document.getElementById('cellSize');
+            // Get input elements using UIManager
+            const widthInput = _uiManager ? _uiManager.getElement('width') : document.getElementById('width');
+            const heightInput = _uiManager ? _uiManager.getElement('height') : document.getElementById('height');
+            const cellSizeInput = _uiManager ? _uiManager.getElement('cellSize') : document.getElementById('cellSize');
             
             // Calculate optimal dimensions for the current viewport size
             const { width, height, cellSize } = calculateOptimalDimensions('medium');

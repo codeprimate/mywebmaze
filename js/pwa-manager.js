@@ -4,10 +4,12 @@
  */
 
 class PWAManager {
-    constructor() {
+    constructor(eventManager = null) {
         this.deferredPrompt = null;
         this.isInstalled = false;
         this.isOnline = navigator.onLine;
+        this.eventManager = eventManager;
+        this.cleanupFunctions = [];
         
         this.init();
     }
@@ -40,7 +42,7 @@ class PWAManager {
      */
     registerServiceWorker() {
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
+            const loadHandler = () => {
                 navigator.serviceWorker.register('/sw.js')
                     .then((registration) => {
                         console.log('Service Worker registered successfully:', registration.scope);
@@ -49,7 +51,14 @@ class PWAManager {
                     .catch((error) => {
                         console.log('Service Worker registration failed:', error);
                     });
-            });
+            };
+            
+            if (this.eventManager) {
+                this.eventManager.addListener(window, 'load', loadHandler, {}, 'pwa');
+            } else {
+                window.addEventListener('load', loadHandler);
+                this.cleanupFunctions.push(() => window.removeEventListener('load', loadHandler));
+            }
         }
     }
 
@@ -73,7 +82,7 @@ class PWAManager {
      * Setup PWA install prompt handling
      */
     setupInstallPrompt() {
-        window.addEventListener('beforeinstallprompt', (e) => {
+        const beforeInstallHandler = (e) => {
             // Prevent Chrome 67 and earlier from automatically showing the prompt
             e.preventDefault();
             // Stash the event so it can be triggered later
@@ -82,19 +91,33 @@ class PWAManager {
             console.log('PWA install prompt available');
             // You could show a custom install button here
             // this.showInstallButton();
-        });
+        };
+        
+        if (this.eventManager) {
+            this.eventManager.addListener(window, 'beforeinstallprompt', beforeInstallHandler, {}, 'pwa');
+        } else {
+            window.addEventListener('beforeinstallprompt', beforeInstallHandler);
+            this.cleanupFunctions.push(() => window.removeEventListener('beforeinstallprompt', beforeInstallHandler));
+        }
     }
 
     /**
      * Setup PWA installation handler
      */
     setupInstallationHandler() {
-        window.addEventListener('appinstalled', (evt) => {
+        const appInstalledHandler = (evt) => {
             console.log('PWA was installed');
             this.isInstalled = true;
             // Hide the install button
             // this.hideInstallButton();
-        });
+        };
+        
+        if (this.eventManager) {
+            this.eventManager.addListener(window, 'appinstalled', appInstalledHandler, {}, 'pwa');
+        } else {
+            window.addEventListener('appinstalled', appInstalledHandler);
+            this.cleanupFunctions.push(() => window.removeEventListener('appinstalled', appInstalledHandler));
+        }
     }
 
     /**
@@ -111,19 +134,31 @@ class PWAManager {
      * Setup online/offline status handlers
      */
     setupOnlineOfflineHandlers() {
-        window.addEventListener('online', () => {
+        const onlineHandler = () => {
             console.log('App is online');
             this.isOnline = true;
             // You could show a "back online" notification
             this.showOnlineNotification();
-        });
+        };
         
-        window.addEventListener('offline', () => {
+        const offlineHandler = () => {
             console.log('App is offline');
             this.isOnline = false;
             // You could show an "offline" notification
             this.showOfflineNotification();
-        });
+        };
+        
+        if (this.eventManager) {
+            this.eventManager.addListener(window, 'online', onlineHandler, {}, 'pwa');
+            this.eventManager.addListener(window, 'offline', offlineHandler, {}, 'pwa');
+        } else {
+            window.addEventListener('online', onlineHandler);
+            window.addEventListener('offline', offlineHandler);
+            this.cleanupFunctions.push(() => {
+                window.removeEventListener('online', onlineHandler);
+                window.removeEventListener('offline', offlineHandler);
+            });
+        }
     }
 
     /**
@@ -231,11 +266,32 @@ class PWAManager {
             hasCaches: 'caches' in window
         };
     }
+    
+    /**
+     * Cleanup all event listeners and resources
+     */
+    cleanup() {
+        // Run all cleanup functions for direct event listeners
+        this.cleanupFunctions.forEach(cleanup => {
+            try {
+                cleanup();
+            } catch (error) {
+                console.error('PWA Manager cleanup error:', error);
+            }
+        });
+        this.cleanupFunctions = [];
+        
+        // EventManager will handle its own cleanup
+        // Reset references
+        this.deferredPrompt = null;
+    }
 }
 
 // Initialize PWA Manager when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.pwaManager = new PWAManager();
+    // Use global EventManager if available
+    const eventManager = window.eventManager || null;
+    window.pwaManager = new PWAManager(eventManager);
 });
 
 // Export for module systems if needed

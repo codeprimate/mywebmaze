@@ -6,12 +6,18 @@ class PathManager {
      * @param {Object} maze - The maze object containing grid, dimensions and state
      * @param {SVGElement} svgElement - SVG container for rendering the path
      * @param {Object} rough - RoughJS instance for drawing with a hand-drawn style
+     * @param {UIManager} uiManager - Centralized UI manager for DOM access and state
+     * @param {EventManager} eventManager - Centralized event manager for listener cleanup
      */
-    constructor(maze, svgElement, rough) {
+    constructor(maze, svgElement, rough, uiManager = null, eventManager = null) {
         this.maze = maze;
         this.svgElement = svgElement;
         this.rough = rough;
-        this.padding = 10
+        this.padding = 10;
+        
+        // Store manager references
+        this.uiManager = uiManager;
+        this.eventManager = eventManager;
         
         // No need to track permission state - just request when needed
         
@@ -26,6 +32,12 @@ class PathManager {
             handleTouchCancel: null,
             resetPathHandler: null
         };
+        
+        // Store cleanup functions for managers
+        this.cleanupFunctions = [];
+        
+        // Flag to prevent recursive reset calls
+        this._isResettingPath = false;
         
         // Configuration for path animations - controls visual appearance and timing
         this.animationConfig = {
@@ -99,10 +111,10 @@ class PathManager {
         
         // Enable debug mode from URL param (e.g. ?debug or #123?debug)
         this.debugEnabled = this.getUrlParam('debug');
-        this.debugElement = document.getElementById('debug-info');
         
-        // Reset path button reference - used to attach event handlers later
-        this.resetPathBtn = document.getElementById('resetPathBtn');
+        // Get DOM elements using UIManager if available, fallback to direct access
+        this.debugElement = this.uiManager ? this.uiManager.getElement('debug-info') : document.getElementById('debug-info');
+        this.resetPathBtn = this.uiManager ? this.uiManager.getElement('resetPathBtn') : document.getElementById('resetPathBtn');
         
         // Configure debug panel visibility based on debug flag
         if (this.debugElement) {
@@ -112,6 +124,22 @@ class PathManager {
                 this.clearDebug();
                 this.debug('Debug mode enabled via URL parameter', 'success');
             }
+        }
+        
+        // Register for reset callbacks if UIManager is available
+        if (this.uiManager) {
+            const unregisterReset = this.uiManager.onReset((resetType) => {
+                if (resetType === 'activity' || resetType === 'full') {
+                    // Only reset path if this is not already a path reset operation
+                    // This prevents recursive calls when resetPath() calls resetActivityUI()
+                    if (!this._isResettingPath) {
+                        this._isResettingPath = true;
+                        this.resetPath();
+                        this._isResettingPath = false;
+                    }
+                }
+            });
+            this.cleanupFunctions.push(unregisterReset);
         }
         
         this.initialize();
@@ -315,7 +343,10 @@ class PathManager {
         }
         
         // Reset timer and stats UI to initial state
-        this.resetActivityUI();
+        // Only call resetActivityUI if we're not already in a reset operation to prevent recursion
+        if (!this._isResettingPath) {
+            this.resetActivityUI();
+        }
     }
     
     /**
@@ -323,6 +354,9 @@ class PathManager {
      * Called when user clicks reset button or starts a new game
      */
     resetPath() {
+        // Set flag to prevent recursive calls
+        this._isResettingPath = true;
+        
         // Stop any ongoing animation to prevent visual artifacts
         this.animation.cleanup();
         
@@ -357,6 +391,9 @@ class PathManager {
             this.addCellToPath(entranceCell);
             this.debug('Path started at entrance for tilt controls after reset', 'info');
         }
+        
+        // Clear the reset flag
+        this._isResettingPath = false;
     }
     
     /**
@@ -1260,27 +1297,42 @@ class PathManager {
         this.eventHandlers.handleTouchEnd = () => handlePointerUp('touchend');
         this.eventHandlers.handleTouchCancel = () => handlePointerUp('touchcancel');
         
-        // Attach mouse event handlers
-        this.svgElement.addEventListener('mousedown', handlePointerDown);
-        this.svgElement.addEventListener('mousemove', handlePointerMove);
-        this.svgElement.addEventListener('mouseup', this.eventHandlers.handleMouseUp);
-        this.svgElement.addEventListener('mouseleave', this.eventHandlers.handleMouseLeave);
-        
-        // Attach touch event handlers for mobile support
-        this.svgElement.addEventListener('touchstart', handlePointerDown);
-        this.svgElement.addEventListener('touchmove', handlePointerMove);
-        this.svgElement.addEventListener('touchend', this.eventHandlers.handleTouchEnd);
-        this.svgElement.addEventListener('touchcancel', this.eventHandlers.handleTouchCancel);
+        // Attach event handlers using EventManager if available, otherwise fallback to direct access
+        if (this.eventManager) {
+            // Use EventManager for all event listeners
+            this.eventManager.addListener(this.svgElement, 'mousedown', handlePointerDown, {}, 'maze');
+            this.eventManager.addListener(this.svgElement, 'mousemove', handlePointerMove, {}, 'maze');
+            this.eventManager.addListener(this.svgElement, 'mouseup', this.eventHandlers.handleMouseUp, {}, 'maze');
+            this.eventManager.addListener(this.svgElement, 'mouseleave', this.eventHandlers.handleMouseLeave, {}, 'maze');
+            this.eventManager.addListener(this.svgElement, 'touchstart', handlePointerDown, {}, 'maze');
+            this.eventManager.addListener(this.svgElement, 'touchmove', handlePointerMove, {}, 'maze');
+            this.eventManager.addListener(this.svgElement, 'touchend', this.eventHandlers.handleTouchEnd, {}, 'maze');
+            this.eventManager.addListener(this.svgElement, 'touchcancel', this.eventHandlers.handleTouchCancel, {}, 'maze');
+        } else {
+            // Fallback: Attach mouse event handlers directly
+            this.svgElement.addEventListener('mousedown', handlePointerDown);
+            this.svgElement.addEventListener('mousemove', handlePointerMove);
+            this.svgElement.addEventListener('mouseup', this.eventHandlers.handleMouseUp);
+            this.svgElement.addEventListener('mouseleave', this.eventHandlers.handleMouseLeave);
+            
+            // Attach touch event handlers for mobile support
+            this.svgElement.addEventListener('touchstart', handlePointerDown);
+            this.svgElement.addEventListener('touchmove', handlePointerMove);
+            this.svgElement.addEventListener('touchend', this.eventHandlers.handleTouchEnd);
+            this.svgElement.addEventListener('touchcancel', this.eventHandlers.handleTouchCancel);
+        }
         
         // Add reset path button handler
         if (this.resetPathBtn) {
             this.eventHandlers.resetPathHandler = () => {
                 this.resetPath();
-                // Reset the activity UI
+                
+                // Explicitly reset the activity UI after path reset
+                // This ensures timer, stats, and completion state are properly reset
                 this.resetActivityUI();
                 
                 // Add tilt animation effect to the activity tracker
-                const activityTracker = document.getElementById('maze-activity-tracker');
+                const activityTracker = this.uiManager ? this.uiManager.getElement('maze-activity-tracker') : document.getElementById('maze-activity-tracker');
                 if (activityTracker) {
                     // Remove and re-add animation class to restart it
                     activityTracker.classList.remove('tilt-animation');
@@ -1293,7 +1345,12 @@ class PathManager {
                     }, 500);
                 }
             };
-            this.resetPathBtn.addEventListener('click', this.eventHandlers.resetPathHandler);
+            
+            if (this.eventManager) {
+                this.eventManager.addListener(this.resetPathBtn, 'click', this.eventHandlers.resetPathHandler, {}, 'maze');
+            } else {
+                this.resetPathBtn.addEventListener('click', this.eventHandlers.resetPathHandler);
+            }
         }
     }
     
@@ -1302,7 +1359,13 @@ class PathManager {
      * Clears timer, stats, and star ratings
      */
     resetActivityUI() {
-        // Get required DOM elements
+        // Use UIManager if available, otherwise fallback to direct DOM access
+        if (this.uiManager) {
+            this.uiManager.resetUI('activity');
+            return;
+        }
+        
+        // Fallback: Get required DOM elements directly
         const activityTracker = document.getElementById('maze-activity-tracker');
         const timerElement = document.getElementById('maze-timer');
         const statusElement = document.getElementById('maze-status');

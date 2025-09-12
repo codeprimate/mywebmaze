@@ -6,13 +6,14 @@
  * Uses SVG masks with radial gradients to create a smooth visibility boundary.
  */
 class HardModeManager {
-    constructor(svgElement) {
+    constructor(svgElement, uiManager = null) {
         // References to maze components
         this.enabled = true;
         this.overlay = null;
         this.maze = null;
         this.pathManager = null;
         this.svgElement = svgElement;
+        this.uiManager = uiManager;
         
         // Animation state for smooth transitions between positions
         this.animation = {
@@ -187,7 +188,7 @@ class HardModeManager {
      */
     _updateUIState() {
         // Update toggle button state
-        const hardModeToggle = document.getElementById('hardModeToggle');
+        const hardModeToggle = this.uiManager ? this.uiManager.getElement('hardModeToggle') : document.getElementById('hardModeToggle');
         if (hardModeToggle) {
             hardModeToggle.checked = this.enabled;
             
