@@ -303,6 +303,12 @@ class PathManager {
             }
         }
 
+        // Clean up any existing timer interval when resetting
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+
         // Initialize user activity tracking with metrics for scoring and analysis
         this.maze.userActivity = {
             // Timing metrics
@@ -1456,19 +1462,19 @@ class PathManager {
             return;
         }
         
-        // Clean up any existing timer to prevent duplicates
-        if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-            this.timerInterval = null;
-        }
-        
-        // Only start if not already running
+        // Only start if not already running - this prevents multiple timer starts
         if (!this.maze.userActivity.startTime) {
             this.maze.userActivity.startTime = new Date();
             this.maze.userActivity.active = true;
             
             // Update solving status
             statusElement.textContent = 'Solving...';
+            
+            // Clean up any existing timer interval to prevent duplicates
+            if (this.timerInterval) {
+                clearInterval(this.timerInterval);
+                this.timerInterval = null;
+            }
             
             // Set up timer update interval (1 second)
             this.timerInterval = setInterval(() => this.updateTimer(), 1000);
@@ -1477,6 +1483,12 @@ class PathManager {
             this.updateTimer();
             
             this.debug('Timer started at ' + this.maze.userActivity.startTime.toLocaleTimeString(), 'event');
+        } else {
+            // Timer already running, just update the status if needed
+            if (statusElement.textContent !== 'Solving...') {
+                statusElement.textContent = 'Solving...';
+            }
+            this.debug('Timer already running, skipping start', 'info');
         }
     }
     
@@ -2197,6 +2209,8 @@ class PathManager {
                 const entranceCell = this.maze.grid[this.maze.entrance.row][this.maze.entrance.col];
                 this.addCellToPath(entranceCell);
                 this.debug('Path started at entrance for tilt controls', 'info');
+            } else {
+                this.debug('Path already exists, skipping entrance initialization', 'info');
             }
         } catch (error) {
             this.debug(`Failed to attach orientation listener: ${error}`, 'error');
