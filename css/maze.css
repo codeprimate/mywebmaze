@@ -976,7 +976,7 @@ input:focus + .slider {
 }
 
 input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
-  font-weight: bold;
+  font-weight: normal;
 }
 
 .hard-mode-toggle .tooltip {
@@ -1030,7 +1030,7 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
 }
 
 .hard-mode-toggle.active label[for="hardModeToggle"] {
-  font-weight: bold;
+  font-weight: normal;
 }
 
 /* Star Rating Styles */
@@ -1324,7 +1324,7 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   .hard-mode-toggle label[for="hardModeToggle"],
   .tilt-controls-toggle label[for="tiltControlsToggle"] {
     font-size: 1.1em;
-    font-weight: bold;
+    font-weight: normal;
   }
   
   .maze-controls-container {
