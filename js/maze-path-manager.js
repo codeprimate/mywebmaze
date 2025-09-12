@@ -1547,16 +1547,19 @@ class PathManager {
             completionTimeElement.innerHTML = `<span class="optimal-value">(Goal: ${formattedOptimalTime})</span> <span class="actual-value">${formattedTime}</span>`;
         }
         
+        // Calculate path lengths for display and star rating
+        const actualPathLength = this.maze.userActivity.uniqueCellsVisited.size;
+        const optimalPathLength = this.maze.userActivity.optimalPathLength;
+        const efficiencyRatio = actualPathLength / optimalPathLength;
+        
         if (pathLengthElement) {
             // Show unique cells visited and optimal path length
             // This ensures we don't count the same cell multiple times when backtracking
-            const actualPathLength = this.maze.userActivity.uniqueCellsVisited.size;
-            const optimalPathLength = this.maze.userActivity.optimalPathLength;
             pathLengthElement.innerHTML = `<span class="optimal-value">(Perfect: ${optimalPathLength})</span> <span class="actual-value">${actualPathLength}</span>`;
         }
         
-        // Update star rating using the already calculated score
-        this.updateStarRating(scoreResult.score);
+        // Update star rating using the score and efficiency ratio
+        this.updateStarRating(scoreResult.score, efficiencyRatio);
         
         // Switch to completed view
         if (activityTracker) {
@@ -1567,19 +1570,39 @@ class PathManager {
     }
     
     /**
-     * Updates star rating display based on score
+     * Updates star rating display based on path efficiency
      * Animates stars filling sequentially with slight delay
      * 
      * @param {number} score - Score from 0-100
+     * @param {number} efficiencyRatio - Path efficiency ratio (actual/optimal)
      * @returns {number} Number of stars filled (0-5)
      */
-    updateStarRating(score) {
+    updateStarRating(score, efficiencyRatio) {
         // Get all regular stars (excluding hard mode star)
         const stars = document.querySelectorAll('.star:not(.hard-mode-star)');
         const hardModeStar = document.querySelector('.hard-mode-star');
         
-        // Convert score to star count (0-5 stars)
-        const starsToFill = Math.min(5, Math.ceil(score / 20));
+        // Calculate stars based on path efficiency (5 stars only for perfect solutions)
+        let starsToFill;
+        if (efficiencyRatio <= 1.0) {
+            // Perfect path: 5 stars
+            starsToFill = 5;
+        } else if (efficiencyRatio <= 1.1) {
+            // Up to 10% over optimal: 4 stars
+            starsToFill = 4;
+        } else if (efficiencyRatio <= 1.25) {
+            // Up to 25% over optimal: 3 stars
+            starsToFill = 3;
+        } else if (efficiencyRatio <= 1.5) {
+            // Up to 50% over optimal: 2 stars
+            starsToFill = 2;
+        } else if (efficiencyRatio <= 2.0) {
+            // Up to 100% over optimal: 1 star
+            starsToFill = 1;
+        } else {
+            // More than 100% over optimal: 0 stars
+            starsToFill = 0;
+        }
         
         // Animation timing setup
         let delay = 0;
@@ -1614,7 +1637,7 @@ class PathManager {
             }
         }
         
-        this.debug(`Star rating updated: ${starsToFill}/5 stars (Score: ${score})`, 'event');
+        this.debug(`Star rating updated: ${starsToFill}/5 stars (Score: ${score}, Efficiency: ${efficiencyRatio.toFixed(2)})`, 'event');
         return starsToFill;
     }
     
@@ -1637,7 +1660,7 @@ class PathManager {
         const TIME_MAX = 40;              // Max points for time efficiency
         const TOTAL_MAX = 100;            // Maximum possible score
         const MS_PER_CELL = 400;          // Expected milliseconds per cell
-        const EFFICIENCY_THRESHOLD = 0.7; // Threshold for 3-star scoring (0.7 == 43% over optimal)
+        const EFFICIENCY_THRESHOLD = 1.5; // Threshold for 3-star scoring (1.5 == 50% over optimal)
         
         // Validate required data
         if (!activity.duration || !activity.optimalPathLength || activity.uniqueCellsVisited.size === 0) {
@@ -1651,20 +1674,20 @@ class PathManager {
         }
         
         const uniquePathLength = activity.uniqueCellsVisited.size;
-        const efficiencyRatio = activity.optimalPathLength / uniquePathLength;
+        const efficiencyRatio = uniquePathLength / activity.optimalPathLength;
         
         // 1. Path efficiency score (0-60 points) with improved algorithm
         let efficiencyScore;
-        if (efficiencyRatio >= 1.0) {
-            // Perfect path: full points
+        if (efficiencyRatio <= 1.0) {
+            // Perfect path or better: full points
             efficiencyScore = EFFICIENCY_MAX;
-        } else if (efficiencyRatio >= EFFICIENCY_THRESHOLD) {
+        } else if (efficiencyRatio <= EFFICIENCY_THRESHOLD) {
             // 0-43% over: Linear interpolation from 60 to 100 points
-            const progress = (efficiencyRatio - EFFICIENCY_THRESHOLD) / (1.0 - EFFICIENCY_THRESHOLD);
+            const progress = (EFFICIENCY_THRESHOLD - efficiencyRatio) / (EFFICIENCY_THRESHOLD - 1.0);
             efficiencyScore = 60 + (40 * progress);
         } else {
             // >43% over: Exponential decay from 60 down to 0
-            const excess = (EFFICIENCY_THRESHOLD - efficiencyRatio) / EFFICIENCY_THRESHOLD;
+            const excess = (efficiencyRatio - EFFICIENCY_THRESHOLD) / EFFICIENCY_THRESHOLD;
             efficiencyScore = 60 * Math.exp(-2 * excess);
         }
         
@@ -1686,6 +1709,7 @@ class PathManager {
         activity.hardModeCompleted = this.hardModeManager && this.hardModeManager.isEnabled();
         
         this.debug(`Score calculated: ${totalScore} (Efficiency: ${Math.round(efficiencyScore)}, Time: ${timeScore})`, 'event');
+        this.debug(`Path efficiency: ${uniquePathLength}/${activity.optimalPathLength} = ${efficiencyRatio.toFixed(2)} (${((efficiencyRatio-1)*100).toFixed(1)}% over optimal)`, 'event');
         
         return {
             score: totalScore,
