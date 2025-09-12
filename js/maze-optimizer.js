@@ -332,6 +332,11 @@ class MazeOptimizer {
                 this.baselineSolutionPathLength >= this.bestCandidate.maze.difficultyBreakdown.solutionPathLength) {
                 this._debug(`Baseline maze is better: difficulty (${this.baselineDifficulty.toFixed(2)}) > candidate (${this.bestCandidate.difficultyScore.toFixed(2)}) and path length is not shorter.`);
                 
+                // Attach and log detailed analysis for the selected baseline maze
+                if (this.baselineMaze) {
+                    this.baselineMaze.logDetailedAnalysis('[MazeOptimizer] Baseline Maze Selected - Detailed Analysis', '#0066cc');
+                }
+                
                 return {
                     maze: this.baselineMaze,
                     params: {},
@@ -342,6 +347,12 @@ class MazeOptimizer {
             }
             
             this._logOptimizationResults();
+            
+            // Attach and log detailed analysis for the selected maze
+            if (this.bestCandidate && this.bestCandidate.maze) {
+                this.bestCandidate.maze.logDetailedAnalysis('[MazeOptimizer] Selected Maze - Detailed Analysis', '#0066cc');
+            }
+            
             return this.bestCandidate;
             
         } catch (error) {
@@ -357,6 +368,9 @@ class MazeOptimizer {
             fallbackMaze.generate();
             
             this._debug('Using fallback standard maze');
+            
+            // Attach and log detailed analysis for the fallback maze
+            fallbackMaze.logDetailedAnalysis('[MazeOptimizer] Fallback Maze Generated - Detailed Analysis', '#ff6600');
             
             return {
                 maze: fallbackMaze,

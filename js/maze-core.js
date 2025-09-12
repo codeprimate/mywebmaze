@@ -444,6 +444,40 @@ const MazeApp = (function() {
         }
         
         /**
+         * Attaches detailed analysis data to the maze object
+         * This makes the analysis data available for logging or other uses
+         * @returns {Object} The detailed analysis object
+         */
+        attachDetailedAnalysis() {
+            if (this.difficultyScorer) {
+                this.detailedAnalysis = this.difficultyScorer.getDetailedAnalysis();
+                return this.detailedAnalysis;
+            } else {
+                console.warn('No difficulty scorer available for detailed analysis');
+                return null;
+            }
+        }
+        
+        /**
+         * Logs the detailed analysis to the console with formatted output
+         * @param {string} title - Optional title for the console group
+         * @param {string} color - Optional color for the console group (default: #0066cc)
+         */
+        logDetailedAnalysis(title = 'Maze Detailed Analysis', color = '#0066cc') {
+            if (!this.detailedAnalysis) {
+                this.attachDetailedAnalysis();
+            }
+            
+            if (this.detailedAnalysis) {
+                console.group(`%c${title}`, `color: ${color}; font-weight: bold; font-size: 14px;`);
+                console.log('Comprehensive maze analysis:', this.detailedAnalysis);
+                console.groupEnd();
+            } else {
+                console.warn('No detailed analysis available to log');
+            }
+        }
+        
+        /**
          * Prepares SVG data for export/download
          * Creates a standalone SVG with metadata footer
          * @returns {string} Serialized SVG string with maze representation
@@ -677,12 +711,20 @@ const MazeApp = (function() {
                 // Fall back to standard generation on error
                 const standardMaze = new Maze(width, height, cellSize, seed);
                 standardMaze.generate();
+                
+                // Attach and log detailed analysis for the error fallback maze
+                standardMaze.logDetailedAnalysis('[MazeApp] Error Fallback Maze Generated - Detailed Analysis', '#ff6600');
+                
                 return standardMaze;
             }
         } else {
             console.warn('MazeOptimizer not available, falling back to standard maze');
             const standardMaze = new Maze(width, height, cellSize, seed);
             standardMaze.generate();
+            
+            // Attach and log detailed analysis for the standard maze
+            standardMaze.logDetailedAnalysis('[MazeApp] Standard Maze Generated - Detailed Analysis', '#0066cc');
+            
             return standardMaze;
         }
     }

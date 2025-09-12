@@ -1,5 +1,5 @@
 // Service Worker for My Web Maze - Offline Support
-const CACHE_NAME = 'maze-gen-v1.1.2';
+const CACHE_NAME = 'maze-gen-v1.1.3';
 
 // Resources to cache immediately
 const STATIC_ASSETS = [

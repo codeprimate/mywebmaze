@@ -24,7 +24,6 @@ class PWAManager {
         this.setupInstallationHandler();
         this.checkStandaloneMode();
         this.setupOnlineOfflineHandlers();
-        this.setupCacheClearButton();
     }
 
     /**
@@ -331,44 +330,6 @@ class PWAManager {
         }
     }
 
-    /**
-     * Setup cache clear button event listener
-     */
-    setupCacheClearButton() {
-        // Try to set up the event listener immediately
-        this.attachUpdateButtonListener();
-        
-        // Also try after a short delay in case DOM isn't fully ready
-        setTimeout(() => {
-            this.attachUpdateButtonListener();
-        }, 100);
-        
-        // Keep backward compatibility with clearCacheBtn if it exists
-        const clearCacheBtn = document.getElementById('clearCacheBtn');
-        if (clearCacheBtn) {
-            clearCacheBtn.addEventListener('click', () => {
-                if (confirm('This will clear all cached data and reload the page. Continue?')) {
-                    this.clearAppCache();
-                }
-            });
-        }
-    }
-
-    /**
-     * Attach event listener to update button
-     */
-    attachUpdateButtonListener() {
-        const updateBtn = document.getElementById('updateBtn');
-        if (updateBtn && !updateBtn.hasAttribute('data-listener-attached')) {
-            updateBtn.addEventListener('click', () => {
-                this.handleUpdateClick();
-            });
-            updateBtn.setAttribute('data-listener-attached', 'true');
-            console.log('Update button event listener attached');
-        } else if (!updateBtn) {
-            console.log('Update button not found in DOM');
-        }
-    }
 
     /**
      * Show install button (for custom install prompts)
