@@ -1403,7 +1403,7 @@ class PathManager {
         // Reset star ratings
         const stars = document.querySelectorAll('.star');
         stars.forEach(star => {
-            star.classList.remove('filled', 'special-shine');
+            star.classList.remove('filled');
         });
         
         // Return to solving view (hide completion view)
@@ -1578,7 +1578,7 @@ class PathManager {
         // Fill stars with sequential animation
         stars.forEach((star, index) => {
             // Reset previous state
-            star.classList.remove('filled', 'special-shine');
+            star.classList.remove('filled');
             
             // Fill stars up to the calculated count
             if (index < starsToFill) {
@@ -1591,7 +1591,7 @@ class PathManager {
         
         // Handle special hard mode star (bonus star)
         if (hardModeStar) {
-            hardModeStar.classList.remove('filled', 'special-shine');
+            hardModeStar.classList.remove('filled');
             
             // Only fill if completed in hard mode
             const isHardMode = this.hardModeManager && this.hardModeManager.isEnabled();
@@ -1600,13 +1600,6 @@ class PathManager {
                 // Add with delay after regular stars
                 setTimeout(() => {
                     hardModeStar.classList.add('filled');
-                    
-                    // Add special animation for near-perfect score
-                    if (score >= 95) {
-                        setTimeout(() => {
-                            hardModeStar.classList.add('special-shine');
-                        }, 300);
-                    }
                 }, delay);
             }
         }
@@ -1641,8 +1634,7 @@ class PathManager {
         const efficiencyScore = Math.min(60, Math.round(pathRatio * pathRatio * pathRatio * 60));
         
         // 2. Time efficiency score (0-40 points)
-        // Base time expectation: 1 seconds per optimal path cell
-        const expectedTime = activity.optimalPathLength * 1000; // milliseconds
+        const expectedTime = activity.optimalPathLength * 250; // milliseconds
         const timeRatio = Math.min(1, expectedTime / activity.duration);
         const timeScore = Math.round(timeRatio * 40);
         

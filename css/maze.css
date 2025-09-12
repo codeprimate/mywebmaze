@@ -1005,25 +1005,6 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   text-shadow: 0 0 10px gold, 0 0 20px orange;
 }
 
-.hard-mode-star.filled.special-shine::after {
-  content: "";
-  position: absolute;
-  top: -10px;
-  left: -10px;
-  right: -10px;
-  bottom: -10px;
-  background: radial-gradient(circle, rgba(255,215,0,0.5) 0%, rgba(255,215,0,0) 70%);
-  border-radius: 50%;
-  z-index: -1;
-  animation: special-shine 2s ease-out;
-}
-
-@keyframes special-shine {
-  0% { transform: scale(0); opacity: 0; }
-  50% { transform: scale(1.5); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.7; }
-}
-
 /* Completion reveal animation */
 .completion-reveal {
   transition: opacity 0.5s ease-out;
