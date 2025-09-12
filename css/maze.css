@@ -1083,6 +1083,28 @@ input#hardModeToggle:checked ~ label[for="hardModeToggle"] {
   min-width: 0;
 }
 
+/* Style actual values in blue and bold, optimal values smaller and not bold */
+#maze-completion-time,
+#maze-path-length {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  justify-content: flex-end;
+}
+
+#maze-completion-time .actual-value,
+#maze-path-length .actual-value {
+  color: #0066cc;
+  font-weight: bold;
+}
+
+#maze-completion-time .optimal-value,
+#maze-path-length .optimal-value {
+  color: #000;
+  font-size: 0.5em;
+  font-weight: normal;
+}
+
 /* Add new media queries for small screens */
 @media screen and (max-width: 480px) {
   /* Activity tracker improvements */

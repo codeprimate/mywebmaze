@@ -1527,33 +1527,43 @@ class PathManager {
             this.timerInterval = null;
         }
         
-        // Format time for display (MM:SS)
+        // Calculate score to get optimal time
+        const scoreResult = this.calculateScore();
+        
+        // Format actual time for display (MM:SS)
         const totalSeconds = Math.floor(this.maze.userActivity.duration / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         
+        // Format optimal time for display (MM:SS)
+        const optimalTotalSeconds = Math.floor(scoreResult.optimalTime / 1000);
+        const optimalMinutes = Math.floor(optimalTotalSeconds / 60);
+        const optimalSeconds = optimalTotalSeconds % 60;
+        const formattedOptimalTime = `${optimalMinutes.toString().padStart(2, '0')}:${optimalSeconds.toString().padStart(2, '0')}`;
+        
         // Update UI with completion statistics
         if (completionTimeElement) {
-            completionTimeElement.textContent = formattedTime;
+            completionTimeElement.innerHTML = `<span class="optimal-value">(Goal: ${formattedOptimalTime})</span> <span class="actual-value">${formattedTime}</span>`;
         }
         
         if (pathLengthElement) {
             // Show unique cells visited and optimal path length
             // This ensures we don't count the same cell multiple times when backtracking
-            pathLengthElement.textContent = `${this.maze.userActivity.uniqueCellsVisited.size} (${this.maze.userActivity.optimalPathLength})`;
+            const actualPathLength = this.maze.userActivity.uniqueCellsVisited.size;
+            const optimalPathLength = this.maze.userActivity.optimalPathLength;
+            pathLengthElement.innerHTML = `<span class="optimal-value">(Perfect: ${optimalPathLength})</span> <span class="actual-value">${actualPathLength}</span>`;
         }
         
-        // Calculate score and update star rating
-        const score = this.calculateScore();
-        this.updateStarRating(score);
+        // Update star rating using the already calculated score
+        this.updateStarRating(scoreResult.score);
         
         // Switch to completed view
         if (activityTracker) {
             activityTracker.classList.add('completed');
         }
         
-        this.debug(`Maze completed! Time: ${formattedTime}, Unique cells: ${this.maze.userActivity.uniqueCellsVisited.size}, Path: ${this.maze.userPath.length} (Optimal: ${this.maze.userActivity.optimalPathLength}), Score: ${score}`, 'success');
+        this.debug(`Maze completed! Time: ${formattedTime} (Optimal: ${formattedOptimalTime}), Unique cells: ${this.maze.userActivity.uniqueCellsVisited.size}, Path: ${this.maze.userPath.length}, Score: ${scoreResult.score}`, 'success');
     }
     
     /**
@@ -1610,55 +1620,80 @@ class PathManager {
     
     /**
      * Calculates the user's performance score
-     * Combines path efficiency and time metrics
+     * Combines path efficiency and time metrics with improved algorithm
      * 
-     * @returns {number} Final score (0-100)
+     * @returns {Object} Score object containing:
+     *   - score: Final score (0-100)
+     *   - actualTime: User's completion time in milliseconds
+     *   - optimalTime: Expected optimal completion time in milliseconds
+     *   - actualPath: User's actual path length (unique cells visited)
+     *   - optimalPath: Optimal solution path length
      */
     calculateScore() {
         const activity = this.maze.userActivity;
         
+        // Scoring configuration constants
+        const EFFICIENCY_MAX = 60;        // Max points for path efficiency
+        const TIME_MAX = 40;              // Max points for time efficiency
+        const TOTAL_MAX = 100;            // Maximum possible score
+        const MS_PER_CELL = 400;          // Expected milliseconds per cell
+        const EFFICIENCY_THRESHOLD = 0.7; // Threshold for 3-star scoring (0.7 == 43% over optimal)
+        
         // Validate required data
-        if (!activity.duration || !activity.optimalPathLength) {
-            return 0;
+        if (!activity.duration || !activity.optimalPathLength || activity.uniqueCellsVisited.size === 0) {
+            return {
+                score: 0,
+                actualTime: activity.duration || 0,
+                optimalTime: 0,
+                actualPath: activity.uniqueCellsVisited.size,
+                optimalPath: activity.optimalPathLength || 0
+            };
         }
         
-        // Get unique path length
         const uniquePathLength = activity.uniqueCellsVisited.size;
+        const efficiencyRatio = activity.optimalPathLength / uniquePathLength;
         
-        // 1. Path efficiency score (0-60 points)
-        // Optimal path gets full points, longer paths receive penalties
-        // Use uniqueCellsVisited size instead of raw path length to avoid penalizing backtracking
-        const pathRatio = activity.optimalPathLength / uniquePathLength;
-        
-        // Quadratic scaling to penalize inefficient paths more heavily
-        const efficiencyScore = Math.min(60, Math.round(pathRatio * pathRatio * pathRatio * 60));
+        // 1. Path efficiency score (0-60 points) with improved algorithm
+        let efficiencyScore;
+        if (efficiencyRatio >= 1.0) {
+            // Perfect path: full points
+            efficiencyScore = EFFICIENCY_MAX;
+        } else if (efficiencyRatio >= EFFICIENCY_THRESHOLD) {
+            // 0-43% over: Linear interpolation from 60 to 100 points
+            const progress = (efficiencyRatio - EFFICIENCY_THRESHOLD) / (1.0 - EFFICIENCY_THRESHOLD);
+            efficiencyScore = 60 + (40 * progress);
+        } else {
+            // >43% over: Exponential decay from 60 down to 0
+            const excess = (EFFICIENCY_THRESHOLD - efficiencyRatio) / EFFICIENCY_THRESHOLD;
+            efficiencyScore = 60 * Math.exp(-2 * excess);
+        }
         
         // 2. Time efficiency score (0-40 points)
-        const expectedTime = activity.optimalPathLength * 250; // milliseconds
+        const expectedTime = activity.optimalPathLength * MS_PER_CELL;
         const timeRatio = Math.min(1, expectedTime / activity.duration);
-        const timeScore = Math.round(timeRatio * 40);
+        const timeScore = Math.round(timeRatio * TIME_MAX);
         
         // Calculate total score (max 100)
-        let totalScore = Math.min(100, efficiencyScore + timeScore);
-        
-        // If score is 100 or more AND path is longer than optimal, cap at 80
-        if (totalScore >= 100 && uniquePathLength > activity.optimalPathLength) {
-            this.debug(`Score capped at 4: path longer than optimal (${uniquePathLength} > ${activity.optimalPathLength})`, 'warning');
-            totalScore = 80;
-        }
+        const totalScore = Math.min(TOTAL_MAX, Math.round(efficiencyScore) + timeScore);
         
         // Save score components for reference
         activity.score = totalScore;
         activity.scoreComponents = {
-            efficiency: efficiencyScore,
+            efficiency: Math.round(efficiencyScore),
             time: timeScore
         };
         
         activity.hardModeCompleted = this.hardModeManager && this.hardModeManager.isEnabled();
         
-        this.debug(`Score calculated: ${totalScore} (Efficiency: ${efficiencyScore}, Time: ${timeScore})`, 'event');
+        this.debug(`Score calculated: ${totalScore} (Efficiency: ${Math.round(efficiencyScore)}, Time: ${timeScore})`, 'event');
         
-        return totalScore;
+        return {
+            score: totalScore,
+            actualTime: activity.duration,
+            optimalTime: expectedTime,
+            actualPath: uniquePathLength,
+            optimalPath: activity.optimalPathLength
+        };
     }
     
     /**
