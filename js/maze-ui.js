@@ -785,7 +785,7 @@ const MazeUI = (function() {
             
             if (downloadBtn) {
                 originalText = downloadBtn.innerHTML;
-                downloadBtn.innerHTML = '<svg class="reload-icon spin" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Generating...';
+                downloadBtn.innerHTML = '<svg class="reload-icon spin"><use href="#reload-icon"></use></svg> Generating...';
                 
                 // Add spin animation class if not already present
                 if (!document.querySelector('style.spin-animation-style')) {
@@ -946,6 +946,7 @@ const MazeUI = (function() {
             const cellSizeInput = document.getElementById('cellSize');
             const seedInput = document.getElementById('seed');
             const generateBtn = document.getElementById('generateBtn');
+            const retryBtn = document.getElementById('retryBtn');
             const downloadBtn = document.getElementById('downloadBtn');
             const downloadPngBtn = document.getElementById('downloadPngBtn');
             const downloadFullSheetBtn = document.getElementById('downloadFullSheetBtn');
@@ -953,7 +954,7 @@ const MazeUI = (function() {
             const hardModeToggle = document.getElementById('hardModeToggle');
             
             if (!svgElement || !widthInput || !heightInput || !cellSizeInput || !seedInput || 
-                !generateBtn || !downloadBtn || !downloadPngBtn || !downloadFullSheetBtn) {
+                !generateBtn || !retryBtn || !downloadBtn || !downloadPngBtn || !downloadFullSheetBtn) {
                 console.error('Required DOM elements not found');
                 return;
             }
@@ -1223,6 +1224,27 @@ const MazeUI = (function() {
                 
                 // Add spin animation to icon
                 const icon = generateBtn.querySelector('.reload-icon');
+                if (icon) {
+                    icon.classList.add('spin');
+                    icon.addEventListener('animationend', () => {
+                        icon.classList.remove('spin');
+                    }, { once: true });
+                }
+            });
+            
+            // Retry button event
+            retryBtn.addEventListener('click', () => {
+                const newSeed = this.generateRandomSeed();
+                seedInput.value = newSeed;
+                
+                // Set a flag to ignore the next hashchange event
+                this._ignoreNextHashChange = true;
+                
+                this.updateUrlHash(newSeed);
+                this.generateMaze();
+                
+                // Add spin animation to icon
+                const icon = retryBtn.querySelector('.reload-icon');
                 if (icon) {
                     icon.classList.add('spin');
                     icon.addEventListener('animationend', () => {

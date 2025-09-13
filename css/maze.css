@@ -700,6 +700,43 @@ input:focus + .slider {
   animation: celebrate 0.5s ease-out;
 }
 
+/* Retry button container */
+.retry-button-container {
+  margin-top: var(--spacing-lg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#retryBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  min-width: auto;
+  min-height: auto;
+}
+
+#retryBtn:hover {
+  transform: scale(1.1);
+}
+
+#retryBtn:focus {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+#retryBtn .reload-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 0;
+  fill: var(--color-text);
+}
+
 /* Hide the duplicate timer/status elements used for JS compatibility */
 #maze-timer-section.hidden {
   display: none;
