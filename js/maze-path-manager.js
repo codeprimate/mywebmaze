@@ -1594,10 +1594,10 @@ class PathManager {
         const stars = document.querySelectorAll('.star:not(.hard-mode-star)');
         const hardModeStar = document.querySelector('.hard-mode-star');
         
-        // Calculate stars based on path efficiency (5 stars only for perfect solutions)
+        // Calculate stars based on path efficiency
         let starsToFill;
         if (efficiencyRatio <= 1.0) {
-            // Perfect path: 5 stars
+            // Better than or equal to optimal: instant 5 stars
             starsToFill = 5;
         } else if (efficiencyRatio <= 1.1) {
             // Up to 10% over optimal: 4 stars
