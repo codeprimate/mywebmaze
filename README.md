@@ -12,6 +12,7 @@ My Web Maze generates perfect mazes with a hand-drawn aesthetic. Users can custo
 - Resize maze dimensions by dragging the bottom-right corner
 - Adjust cell size using the mouse wheel or pinch gesture
 - Trace the path from entrance to exit
+- Arrow key navigation for precise step-by-step movement
 - Tilt controls for mobile devices to navigate using device orientation
 - Download mazes as SVG or PNG
 - Create PDF with multiple mazes on a single page
@@ -28,13 +29,14 @@ My Web Maze generates perfect mazes with a hand-drawn aesthetic. Users can custo
 2. **Adjust Cell Size**: Use your mouse wheel (on computer) or pinch gesture (on phone) to make cells larger or smaller
 3. **Resize the Maze**: Drag the bottom-right corner to change dimensions
 4. **Trace the Path**: Click and drag to trace the path from entrance to exit 
-5. **Mobile Tilt Controls**: On mobile devices, use the Tilt toggle to enable navigation by physically tilting your device
-6. **Hard Mode**: Toggle "Hard Mode" to only see part of the maze while solving for an extra challenge
-7. **Track Performance**: Use the timer and star rating system to measure your solving skills
-8. **Download**: Save your maze as an SVG or PNG file using the download buttons
-9. **Multiple Mazes**: Create a PDF with multiple mazes on a single page using the "Multiple Mazes" button
-10. **Reset Path**: Clear your traced path with the reset button to try again
-11. **Share Mazes**: Bookmark or share the URL of any maze - the seed number in the URL (e.g., #12345) creates the exact same maze every time
+5. **Arrow Key Navigation**: Use the arrow keys (↑↓←→) to navigate through the maze step by step for precise movement
+6. **Mobile Tilt Controls**: On mobile devices, use the Tilt toggle to enable navigation by physically tilting your device
+7. **Hard Mode**: Toggle "Hard Mode" to only see part of the maze while solving for an extra challenge
+8. **Track Performance**: Use the timer and star rating system to measure your solving skills
+9. **Download**: Save your maze as an SVG or PNG file using the download buttons
+10. **Multiple Mazes**: Create a PDF with multiple mazes on a single page using the "Multiple Mazes" button
+11. **Reset Path**: Clear your traced path with the reset button to try again
+12. **Share Mazes**: Bookmark or share the URL of any maze - the seed number in the URL (e.g., #12345) creates the exact same maze every time
 
 ## Implementation
 

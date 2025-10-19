@@ -1309,6 +1309,7 @@ class PathManager {
         this.eventHandlers.handleMouseLeave = () => handlePointerUp('mouseleave');
         this.eventHandlers.handleTouchEnd = () => handlePointerUp('touchend');
         this.eventHandlers.handleTouchCancel = () => handlePointerUp('touchcancel');
+        this.eventHandlers.handleKeyDown = this.handleArrowKeyMovement.bind(this);
         
         // Attach event handlers using EventManager if available, otherwise fallback to direct access
         if (this.eventManager) {
@@ -1364,6 +1365,13 @@ class PathManager {
             } else {
                 this.resetPathBtn.addEventListener('click', this.eventHandlers.resetPathHandler);
             }
+        }
+        
+        // Add keyboard navigation support
+        if (this.eventManager) {
+            this.eventManager.addListener(document, 'keydown', this.eventHandlers.handleKeyDown, {}, 'maze');
+        } else {
+            document.addEventListener('keydown', this.eventHandlers.handleKeyDown);
         }
     }
     
@@ -2307,10 +2315,10 @@ class PathManager {
             if (Math.abs(adjustedBeta) > this.tiltConfig.threshold) {
                 if (adjustedBeta > 0) {
                     // Tilting forward (towards south)
-                    this.tryMoveTiltDirection(currentCell, 'south');
+                    this.tryMoveDirection(currentCell, 'south');
                 } else {
                     // Tilting backward (towards north)
-                    this.tryMoveTiltDirection(currentCell, 'north');
+                    this.tryMoveDirection(currentCell, 'north');
                 }
             }
         } else {
@@ -2318,10 +2326,10 @@ class PathManager {
             if (Math.abs(adjustedGamma) > this.tiltConfig.threshold) {
                 if (adjustedGamma > 0) {
                     // Tilting right (towards east)
-                    this.tryMoveTiltDirection(currentCell, 'east');
+                    this.tryMoveDirection(currentCell, 'east');
                 } else {
                     // Tilting left (towards west)
-                    this.tryMoveTiltDirection(currentCell, 'west');
+                    this.tryMoveDirection(currentCell, 'west');
                 }
             }
         }
@@ -2334,7 +2342,7 @@ class PathManager {
      * @param {string} direction - The direction to move ('north', 'east', 'south', 'west')
      * @returns {boolean} Whether the move was successful
      */
-    tryMoveTiltDirection(currentCell, direction) {
+    tryMoveDirection(currentCell, direction) {
         // Calculate target cell coordinates based on direction
         let targetRow = currentCell.row;
         let targetCol = currentCell.col;
@@ -2374,6 +2382,58 @@ class PathManager {
         }
         
         return false;
+    }
+    
+    /**
+     * Handles arrow key navigation for maze movement
+     * Maps arrow keys to directional movement using existing validation logic
+     * 
+     * @param {KeyboardEvent} event - The keyboard event
+     */
+    handleArrowKeyMovement(event) {
+        // Only handle arrow keys
+        const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+        if (!arrowKeys.includes(event.key)) {
+            return;
+        }
+        
+        // Prevent default browser behavior for arrow keys
+        event.preventDefault();
+        
+        // Prevent movement on completed maze
+        if (this.maze.isCompleted) {
+            this.debug(`Arrow key ignored - maze is already completed`, 'warning');
+            return;
+        }
+        
+        // Map arrow keys to directions
+        const keyToDirection = {
+            'ArrowUp': 'north',
+            'ArrowDown': 'south', 
+            'ArrowLeft': 'west',
+            'ArrowRight': 'east'
+        };
+        
+        const direction = keyToDirection[event.key];
+        
+        // Initialize path at entrance if no path exists
+        if (this.maze.userPath.length === 0) {
+            const entranceCell = this.maze.grid[this.maze.entrance.row][this.maze.entrance.col];
+            this.addCellToPath(entranceCell);
+            this.debug(`Arrow key navigation started at entrance (${entranceCell.row},${entranceCell.col})`, 'success');
+        }
+        
+        // Get current position
+        const currentEnd = this.maze.grid[this.maze.currentPathEnd.row][this.maze.currentPathEnd.col];
+        
+        // Attempt to move in the specified direction
+        const success = this.tryMoveDirection(currentEnd, direction);
+        
+        if (success) {
+            this.debug(`Arrow key moved ${direction} successfully`, 'success');
+        } else {
+            this.debug(`Arrow key movement ${direction} blocked by wall or boundary`, 'warning');
+        }
     }
     
     /**
@@ -2463,6 +2523,11 @@ class PathManager {
         
         // Remove all SVG event listeners
         this._removeSVGEventListeners();
+        
+        // Remove keyboard event listeners (fallback if EventManager not available)
+        if (this.eventHandlers.handleKeyDown && !this.eventManager) {
+            document.removeEventListener('keydown', this.eventHandlers.handleKeyDown);
+        }
         
         // Clear path graphics
         this.clearPathGraphics();
